@@ -1,0 +1,7 @@
+esd4pr:
+  JIRA_ACCOUNT_ID:
+    type: bash
+    bash: echo "a"
+  JIRA_API_TOKEN:
+    type: bash
+    bash: op read op://Employee/my_test_credential/username
