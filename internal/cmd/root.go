@@ -1,15 +1,14 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"syscall"
+	"os/exec"
 	"time"
 
 	"github.com/briandowns/spinner"
 	"github.com/jcchavezs/chasky/internal/config"
-	"github.com/jcchavezs/chasky/internal/env"
+	"github.com/jcchavezs/chasky/internal/environ"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag"
 	prettyconsole "github.com/thessem/zap-prettyconsole"
@@ -63,24 +62,30 @@ var RootCmd = &cobra.Command{
 		s.FinalMSG = fmt.Sprintf("Generated env vars for %q successfully\n", toolName)
 		s.Start()
 
-		secrets, ok := conf[toolName]
+		toolValues, ok := conf[toolName]
 		if !ok {
 			return fmt.Errorf("unknown tool %s", toolName)
 		}
 
-		envvars, err := env.GenerateEnv(ctx, secrets)
+		env, err := environ.Render(ctx, toolValues)
 		if err != nil {
 			return fmt.Errorf("generating env vars: %w", err)
 		}
 		s.Stop()
 
-		if len(envvars) == 0 {
-			return errors.New("no env vars were generated")
-		}
+		defer func() {
+			_ = env.Close()
+		}()
 
-		envvars = append(envvars, fmt.Sprintf("CHASKY_ENV=%s", toolName))
+		envvars := append(env.EnvVars, fmt.Sprintf("CHASKY_ENV=%s", toolName))
 
-		return syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, append(envvars, syscall.Environ()...))
+		c := exec.CommandContext(cmd.Context(), os.Getenv("SHELL"))
+		c.Env = append(envvars, os.Environ()...)
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		c.Stdin = os.Stdin
+
+		return c.Run()
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 		_ = logger.Sync()

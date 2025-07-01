@@ -1,8 +1,8 @@
 # Chasky
 
 Chasky is a secrets dealer. Declare the secrets you need on every tool
-as environment variables and use your tooling without the security concern
-of leaking secrets on `.env` files.
+as environment variables or other setups and use your tooling without the security concern
+of leaking secrets on `.env` or `.envrc` files.
 
 ## Getting started
 
@@ -10,13 +10,17 @@ First you need to declare your secrets in `~/.chasky.yaml` under the following s
 
 ```yaml
 mytool:
-  GITHUB_TOKEN:
-    type: bash
-    bash: gh auth token
-  JIRA_TOKEN:
-    type: bash
-    bash: op item get op://Employee/my_jira_access/password
-  #...
+  - output: env
+    values:
+      GITHUB_TOKEN:
+        type: bash
+        bash: 
+          command: gh auth token
+      JIRA_TOKEN:
+        type: bash
+        bash: 
+          command: op item get op://Employee/my_jira_access/password
+      #...
 ```
 
 then inject the values using

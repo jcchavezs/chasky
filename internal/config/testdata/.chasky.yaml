@@ -1,0 +1,23 @@
+tool_1:
+  - output: env
+    values:
+      JIRA_ACCOUNT_ID:
+        type: bash
+        bash:
+          command: echo "a"
+      JIRA_API_TOKEN:
+        type: bash
+        bash:
+          command: echo "b"
+
+tool_2:
+  - output: gcloud
+    values:
+      account:
+        type: static
+        static:
+          value: abc123
+      client_id:
+        type: static
+        static:
+          value: abc123

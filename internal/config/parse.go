@@ -38,9 +38,12 @@ func (s *Secret) UnmarshalYAML(data []byte) error {
 	return nil
 }
 
-type ToolSecrets map[string]Secret
+type ToolValues struct {
+	Output string            `yaml:"output"`
+	Values map[string]Secret `yaml:"values"`
+}
 
-type Config map[string]ToolSecrets
+type Config map[string][]ToolValues
 
 func ConfigPath() (string, error) {
 	dir, err := os.UserHomeDir()
