@@ -4,13 +4,19 @@ Chasky is a secrets dealer. Declare the secrets you need on every tool
 as environment variables or other setups and use your tooling without the security concern
 of leaking secrets on `.env` or `.envrc` files.
 
+## Installation
+
+```console
+go install github.com/jcchavezs/chasky/cmd/chasky@latest
+```
+
 ## Getting started
 
 First you need to declare your secrets in `~/.chasky.yaml` under the following syntax:
 
 ```yaml
 mytool:
-  - output: env
+  - output: env # defines how to output the credentials
     values:
       GITHUB_TOKEN:
         type: bash
