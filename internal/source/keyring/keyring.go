@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/user"
+	"strings"
 
 	"github.com/goccy/go-yaml"
 	"github.com/zalando/go-keyring"
@@ -49,17 +50,17 @@ func Resolve(ctx context.Context, rawConfig []byte) (string, error) {
 	return val, nil
 }
 
-func Persist(ctx context.Context, key, value string) ([]byte, error) {
+func Persist(ctx context.Context, key, value string) (string, error) {
 	user, err := getCurrentUser()
 	if err != nil {
-		return nil, fmt.Errorf("getting current user: %w", err)
+		return "", fmt.Errorf("getting current user: %w", err)
 	}
+
+	key = fmt.Sprintf("com.github.jcchavezs.pakay-%s", strings.ToLower(key))
 
 	if err := keyring.Set(key, user, value); err != nil {
-		return nil, err
+		return "", err
 	}
 
-	c := config{Key: key}
-
-	return yaml.Marshal(c)
+	return key, nil
 }

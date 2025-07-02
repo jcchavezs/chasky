@@ -48,7 +48,7 @@ func TestParseMissingSecretType(t *testing.T) {
 	invalidFile := filepath.Join(tempDir, "missing_type.yaml")
 
 	content := `
-test_tool:
+test_env:
   - output: env
     values:
       INVALID_SECRET:
@@ -70,7 +70,7 @@ func TestParseValidSecretTypes(t *testing.T) {
 	validFile := filepath.Join(tempDir, "valid_secrets.yaml")
 
 	content := `
-test_tool:
+test_env:
   - output: env
     values:
       BASH_SECRET:
@@ -90,11 +90,11 @@ test_tool:
 	require.NotNil(t, config)
 	require.Equal(t, 1, len(config))
 
-	toolValues, exists := config["test_tool"]
+	envValues, exists := config["test_env"]
 	require.True(t, exists)
-	require.Equal(t, 1, len(toolValues))
+	require.Equal(t, 1, len(envValues))
 
-	values := toolValues[0].Values
+	values := envValues[0].Values
 	require.Equal(t, 2, len(values))
 
 	// Check bash secret
@@ -110,13 +110,13 @@ test_tool:
 	require.JSONEq(t, `{"value":"test_value"}`, string(staticSecret.RawConfig))
 }
 
-func TestParseMultipleOutputsPerTool(t *testing.T) {
-	// Create a temporary file with multiple outputs for the same tool
+func TestParseMultipleOutputsPerEnv(t *testing.T) {
+	// Create a temporary file with multiple outputs for the same env
 	tempDir := t.TempDir()
 	multiOutputFile := filepath.Join(tempDir, "multi_output.yaml")
 
 	content := `
-test_tool:
+test_env:
   - output: env
     values:
       ENV_SECRET:
@@ -138,19 +138,19 @@ test_tool:
 	require.NotNil(t, config)
 	require.Equal(t, 1, len(config))
 
-	toolValues, exists := config["test_tool"]
+	envValues, exists := config["test_env"]
 	require.True(t, exists)
-	require.Equal(t, 2, len(toolValues))
+	require.Equal(t, 2, len(envValues))
 
 	// Check first output (env)
-	envOutput := toolValues[0]
+	envOutput := envValues[0]
 	require.Equal(t, "env", envOutput.Output)
 	require.Equal(t, 1, len(envOutput.Values))
 	envSecret := envOutput.Values["ENV_SECRET"]
 	require.Equal(t, "static", envSecret.Type)
 
 	// Check second output (gcloud)
-	gcloudOutput := toolValues[1]
+	gcloudOutput := envValues[1]
 	require.Equal(t, "gcloud", gcloudOutput.Output)
 	require.Equal(t, 1, len(gcloudOutput.Values))
 	gcloudSecret := gcloudOutput.Values["GCLOUD_SECRET"]

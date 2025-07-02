@@ -39,7 +39,7 @@ var logger *zap.Logger
 
 var RootCmd = &cobra.Command{
 	Use:   "chasky",
-	Short: "Chasky is a tool to generate environment variables for various tools",
+	Short: "Chasky is a tool to generate shell environments for your apps",
 	Args:  cobra.ExactArgs(1),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		logger = prettyconsole.NewLogger(loglevel).
@@ -49,28 +49,28 @@ var RootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		ctx := cmd.Context()
-		var toolName string
+		var envName string
 
 		conf, err := config.Parse()
 		if err != nil {
 			return err
 		}
 
-		toolName = args[0]
+		envName = args[0]
 
 		s := spinner.New(spinner.CharSets[26], 200*time.Millisecond) // Build our new spinner
-		s.Prefix = fmt.Sprintf("Generating env vars for %q ", toolName)
-		s.FinalMSG = fmt.Sprintf("Generated env vars for %q successfully\n", toolName)
+		s.Prefix = fmt.Sprintf("Generating the environment for %q ", envName)
+		s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully\n", envName)
 		s.Start()
 
-		toolValues, ok := conf[toolName]
+		appValues, ok := conf[envName]
 		if !ok {
-			return fmt.Errorf("unknown tool %s", toolName)
+			return fmt.Errorf("unknown environment %s", envName)
 		}
 
-		env, err := environ.Render(ctx, toolValues)
+		env, err := environ.Render(ctx, appValues)
 		if err != nil {
-			return fmt.Errorf("generating env vars: %w", err)
+			return fmt.Errorf("rendering environment: %w", err)
 		}
 		s.Stop()
 
@@ -78,7 +78,7 @@ var RootCmd = &cobra.Command{
 			_ = env.Close()
 		}()
 
-		envvars := append(env.EnvVars, fmt.Sprintf("CHASKY_ENV=%s", toolName))
+		envvars := append(env.EnvVars, fmt.Sprintf("CHASKY_ENVNAME=%s", envName))
 
 		c := exec.CommandContext(cmd.Context(), os.Getenv("SHELL"))
 		c.Env = append(envvars, os.Environ()...)
@@ -86,7 +86,15 @@ var RootCmd = &cobra.Command{
 		c.Stdout = os.Stdout
 		c.Stdin = os.Stdin
 
-		return c.Run()
+		if err := c.Start(); err != nil {
+			return fmt.Errorf("starting environment: %w", err)
+		}
+
+		for _, msg := range env.WelcomeMsgs {
+			fmt.Println(msg)
+		}
+
+		return c.Wait()
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 		_ = logger.Sync()

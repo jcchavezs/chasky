@@ -1,6 +1,7 @@
 package types
 
 type Output struct {
-	EnvVars []string
-	Closer  func() error
+	WelcomeMsg string
+	EnvVars    []string
+	Closer     func() error
 }

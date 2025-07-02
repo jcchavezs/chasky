@@ -1,4 +1,4 @@
-tool_1:
+env_1:
   - output: env
     values:
       JIRA_ACCOUNT_ID:
@@ -10,7 +10,7 @@ tool_1:
         bash:
           command: echo "b"
 
-tool_2:
+env_2:
   - output: gcloud
     values:
       account:
@@ -21,3 +21,19 @@ tool_2:
         type: static
         static:
           value: abc123
+
+env_3:
+  - output: netrc
+    values:
+      machine:
+        type: static
+        static:
+          value: default
+      login:
+        type: static
+        static:
+          value: daniel
+      password:
+        type: static
+        static:
+          value: qwerty

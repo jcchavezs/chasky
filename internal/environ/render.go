@@ -11,8 +11,9 @@ import (
 )
 
 type Environment struct {
-	EnvVars []string
-	closers []func() error
+	WelcomeMsgs []string
+	EnvVars     []string
+	closers     []func() error
 }
 
 func (e Environment) Close() error {
@@ -24,8 +25,9 @@ func (e Environment) Close() error {
 	return errors.Join(errs...)
 }
 
-func Render(ctx context.Context, tvs []config.ToolValues) (Environment, error) {
+func Render(ctx context.Context, tvs []config.EnvironmentValues) (Environment, error) {
 	e := Environment{}
+
 	for _, tv := range tvs {
 		vs := map[string]string{}
 
@@ -41,6 +43,10 @@ func Render(ctx context.Context, tvs []config.ToolValues) (Environment, error) {
 		o, err := output.Exec(ctx, tv.Output, vs)
 		if err != nil {
 			return Environment{}, fmt.Errorf("executing output %q: %w", tv.Output, err)
+		}
+
+		if o.WelcomeMsg != "" {
+			e.WelcomeMsgs = append(e.WelcomeMsgs, o.WelcomeMsg)
 		}
 
 		if len(o.EnvVars) > 0 {
