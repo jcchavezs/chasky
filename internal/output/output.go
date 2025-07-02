@@ -3,6 +3,7 @@ package output
 import (
 	"context"
 
+	"github.com/jcchavezs/chasky/internal/log"
 	"github.com/jcchavezs/chasky/internal/output/env"
 	"github.com/jcchavezs/chasky/internal/output/gcloud"
 	"github.com/jcchavezs/chasky/internal/output/types"
@@ -14,7 +15,8 @@ func Exec(ctx context.Context, name string, values map[string]string) (types.Out
 		return env.Exec(ctx, values)
 	case "gcloud":
 		return gcloud.Exec(ctx, values)
+	default:
+		log.Logger.Debug("unknown output type, defaulting to env")
+		return env.Exec(ctx, values)
 	}
-
-	return types.Output{}, nil
 }

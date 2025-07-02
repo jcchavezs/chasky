@@ -18,7 +18,7 @@ type config struct {
 func Resolve(ctx context.Context, rawConfig []byte) (string, error) {
 	var c config
 	if err := yaml.Unmarshal(rawConfig, &c); err != nil {
-		return "", fmt.Errorf("unamrshaling resolver config: %w", err)
+		return "", fmt.Errorf("unmarshaling resolver config: %w", err)
 	}
 
 	if c.Command == "" {
