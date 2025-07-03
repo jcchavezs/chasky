@@ -2,7 +2,7 @@ package source
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/jcchavezs/chasky/internal/source/bash"
 	"github.com/jcchavezs/chasky/internal/source/keyring"
@@ -19,5 +19,5 @@ func Exec(ctx context.Context, _type string, rawConfig []byte) (string, error) {
 		return keyring.Resolve(ctx, rawConfig)
 	}
 
-	return "", errors.New("type not found")
+	return "", fmt.Errorf("source type %q not found", _type)
 }

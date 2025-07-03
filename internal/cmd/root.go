@@ -61,6 +61,7 @@ var RootCmd = &cobra.Command{
 		s := spinner.New(spinner.CharSets[26], 200*time.Millisecond) // Build our new spinner
 		s.Prefix = fmt.Sprintf("Generating the environment for %q ", envName)
 		s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully\n", envName)
+		s.Suffix = "\n"
 		s.Start()
 
 		appValues, ok := conf[envName]

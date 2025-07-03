@@ -34,7 +34,7 @@ func Render(ctx context.Context, tvs []config.EnvironmentValues) (Environment, e
 		for name, s := range tv.Values {
 			v, err := source.Exec(ctx, s.Type, s.RawConfig)
 			if err != nil {
-				return Environment{}, fmt.Errorf("resolving value: %w", err)
+				return Environment{}, fmt.Errorf("resolving value for %s: %w", name, err)
 			}
 
 			vs[name] = v
