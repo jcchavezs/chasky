@@ -254,7 +254,7 @@ func TestExec_WelcomeMessage(t *testing.T) {
 	output, err := Exec(ctx, values)
 	require.NoError(t, err)
 
-	defer output.Closer()
+	defer output.Closer() //nolint
 
 	require.Contains(t, output.WelcomeMsg, "NETRC_FILE")
 	require.Contains(t, output.WelcomeMsg, "curl --netrc-file")

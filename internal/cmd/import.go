@@ -43,19 +43,24 @@ $ chasky import keyring JIRA_EMAIL=bar JIRA_API_TOKEN=baz
 		}
 
 		cmd.Printf("Credentials successfully imported into %s.\n\n", source)
-		cmd.Printf(`To use them in a given environment, just add:
+		cmd.Printf("To use them in a given environment, type `chasky edit` and add:\n")
+
+		yaml := &strings.Builder{}
+		_, _ = yaml.WriteString(`
 ---
 # ...
-- values:
-`)
+- values:`)
 
 		for name, key := range creds {
-			cmd.Printf(`  - %s:
+			fmt.Fprintf(yaml, `
+  - %s:
       type: keyring
       keyring:
         key: %s
 `, name, key)
 		}
+
+		cmd.Println(yaml)
 
 		return nil
 	},

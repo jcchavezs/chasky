@@ -53,12 +53,13 @@ func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 	if err != nil {
 		return types.Output{}, fmt.Errorf("creating credentials file: %w", err)
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 
 	if _, err := f.Write(b); err != nil {
 		return types.Output{}, fmt.Errorf("writing credentials: %w", err)
 	}
-
-	_ = f.Close()
 
 	return types.Output{
 		EnvVars: []string{fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", f.Name())},

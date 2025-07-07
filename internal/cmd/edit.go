@@ -19,9 +19,12 @@ var EditCmd = &cobra.Command{
 			return fmt.Errorf("getting config path: %w", err)
 		}
 
-		editor := getEditor()
+		editor, foundEditor := getEditor()
+		if !foundEditor {
+			logger.Warn("EDITOR env var not found, using nano")
+		}
 
-		logger.Info("Launching debug", zap.String("editor", editor), zap.String("path", path))
+		logger.Info("Launching editor", zap.String("editor", editor), zap.String("path", path))
 
 		execCmd := exec.CommandContext(cmd.Context(), editor, path)
 		execCmd.Stdout = os.Stdout
@@ -30,10 +33,10 @@ var EditCmd = &cobra.Command{
 	},
 }
 
-func getEditor() string {
+func getEditor() (string, bool) {
 	if editor := os.Getenv("EDITOR"); editor == "" {
-		return "nano"
+		return "nano", false
 	} else {
-		return editor
+		return editor, true
 	}
 }
