@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+
+jobs:
+  test:
+    strategy:
+        matrix:
+            go_version: [ 1.23, 1.24 ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      - name: Install tools
+        run: make install-tools
+
+      - name: Run lint
+        run: make lint
+
+      - name: Run vulncheck
+        run: make vulncheck
+
+      - name: Run tests
+        run: make test

@@ -68,12 +68,13 @@ func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 	if err != nil {
 		return types.Output{}, fmt.Errorf("creating credentials file: %w", err)
 	}
+	defer func() {
+		_ = f.Close()
+	}()
 
 	if _, err := f.WriteString(creds.String()); err != nil {
 		return types.Output{}, fmt.Errorf("writing credentials: %w", err)
 	}
-
-	_ = f.Close()
 
 	return types.Output{
 		WelcomeMsg: `The location of the .netrc file that has been created can be found in the $NETRC_FILE env var
