@@ -5,6 +5,7 @@ test:
 .PHONY: install-tools
 install-tools: ## Install tools
 	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
 
 check-tool-%:
 	@which $* > /dev/null || (echo "Install $* with 'make install-tools'"; exit 1 )
