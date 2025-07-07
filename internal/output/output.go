@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/jcchavezs/chasky/internal/log"
+	"github.com/jcchavezs/chasky/internal/output/dotenv"
 	"github.com/jcchavezs/chasky/internal/output/env"
 	"github.com/jcchavezs/chasky/internal/output/gcloud"
 	"github.com/jcchavezs/chasky/internal/output/netrc"
@@ -12,6 +13,8 @@ import (
 
 func Exec(ctx context.Context, name string, values map[string]string) (types.Output, error) {
 	switch name {
+	case "dotenv":
+		return dotenv.Exec(ctx, values)
 	case "env":
 		return env.Exec(ctx, values)
 	case "gcloud":

@@ -27,5 +27,8 @@ jobs:
       - name: Run lint
         run: make lint
 
+      - name: Run vulncheck
+        run: make vulncheck
+
       - name: Run tests
         run: make test
