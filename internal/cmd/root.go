@@ -10,7 +10,7 @@ import (
 	"github.com/jcchavezs/chasky/internal/config"
 	"github.com/jcchavezs/chasky/internal/environ"
 	"github.com/spf13/cobra"
-	"github.com/thediveo/enumflag"
+	"github.com/thediveo/enumflag/v2"
 	prettyconsole "github.com/thessem/zap-prettyconsole"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
