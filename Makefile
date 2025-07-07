@@ -12,3 +12,7 @@ check-tool-%:
 .PHONY: lint
 lint: check-tool-golangci-lint
 	@golangci-lint run ./...
+
+.PHONY: vulncheck
+vulncheck: check-tool-govulncheck
+	@govulncheck ./...
