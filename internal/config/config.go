@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
 )
 
@@ -60,3 +61,12 @@ type EnvironmentValues struct {
 }
 
 type Config map[string][]EnvironmentValues
+
+func (c *Config) UnmarshalYAML(data []byte) error {
+	f, err := parser.ParseBytes(data, parser.ParseComments)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%#+v\n", f.Docs[0].Body.(*ast.MappingNode).Values[0].Key.(*ast.StringNode).Comment)
+	return nil
+}
