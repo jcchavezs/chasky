@@ -32,6 +32,7 @@ func init() {
 		"Sets the log level",
 	)
 	RootCmd.AddCommand(EditCmd)
+	RootCmd.AddCommand(ListCmd)
 	RootCmd.AddCommand(importCmd)
 }
 
