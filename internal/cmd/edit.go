@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/jcchavezs/chasky/internal/config"
+	"github.com/jcchavezs/chasky/internal/log"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -21,10 +22,10 @@ var EditCmd = &cobra.Command{
 
 		editor, foundEditor := getEditor()
 		if !foundEditor {
-			logger.Warn("EDITOR env var not found, using nano")
+			log.Logger.Warn("EDITOR env var not found, using nano")
 		}
 
-		logger.Info("Launching editor", zap.String("editor", editor), zap.String("path", path))
+		log.Logger.Info("Launching editor", zap.String("editor", editor), zap.String("path", path))
 
 		execCmd := exec.CommandContext(cmd.Context(), editor, path)
 		execCmd.Stdout = os.Stdout

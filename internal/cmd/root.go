@@ -9,9 +9,9 @@ import (
 	"github.com/briandowns/spinner"
 	"github.com/jcchavezs/chasky/internal/config"
 	"github.com/jcchavezs/chasky/internal/environ"
+	"github.com/jcchavezs/chasky/internal/log"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
-	prettyconsole "github.com/thessem/zap-prettyconsole"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -35,15 +35,12 @@ func init() {
 	RootCmd.AddCommand(importCmd)
 }
 
-var logger *zap.Logger
-
 var RootCmd = &cobra.Command{
 	Use:   "chasky",
 	Short: "Chasky is a tool to generate shell environments for your apps",
 	Args:  cobra.ExactArgs(1),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		logger = prettyconsole.NewLogger(loglevel).
-			WithOptions(zap.ErrorOutput(zapcore.AddSync(cmd.ErrOrStderr())))
+		log.Init(loglevel, cmd.ErrOrStderr())
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -59,8 +56,8 @@ var RootCmd = &cobra.Command{
 		envName = args[0]
 
 		s := spinner.New(spinner.CharSets[26], 200*time.Millisecond) // Build our new spinner
-		s.Prefix = fmt.Sprintf("Generating the environment for %q ", envName)
-		s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully\n", envName)
+		s.Prefix = fmt.Sprintf("Generating the environment for %q", envName)
+		s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully!\n", envName)
 		s.Suffix = "\n"
 		s.Start()
 
@@ -90,16 +87,17 @@ var RootCmd = &cobra.Command{
 		if err := c.Start(); err != nil {
 			return fmt.Errorf("starting environment: %w", err)
 		}
-
-		for _, msg := range env.WelcomeMsgs {
-			fmt.Println(msg)
+		if len(env.WelcomeMsgs) > 0 {
+			fmt.Println("")
+			for _, msg := range env.WelcomeMsgs {
+				fmt.Println(msg)
+			}
 		}
 
 		return c.Wait()
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		_ = logger.Sync()
-		return nil
+		return log.Close()
 	},
 	SilenceUsage:  false,
 	SilenceErrors: true,

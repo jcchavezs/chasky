@@ -148,7 +148,7 @@ func TestExec(t *testing.T) {
 				netrcFile := strings.TrimPrefix(output.EnvVars[0], "NETRC_FILE=")
 				content, err := os.ReadFile(netrcFile)
 				require.NoError(t, err)
-				require.Equal(t, "machine api.github.com login myuser password mypass", string(content))
+				require.Equal(t, "machine api.github.com login myuser password mypass\n", string(content))
 			},
 		},
 		{
