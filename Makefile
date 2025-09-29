@@ -17,3 +17,12 @@ lint: check-tool-golangci-lint
 .PHONY: vulncheck
 vulncheck: check-tool-govulncheck
 	@govulncheck ./...
+
+BIN_DIR ?= $(shell pwd)/bin
+
+build:
+	@mkdir -p $(BIN_DIR)
+	@go build -o $(BIN_DIR) ./cmd/chasky 
+
+install:
+	@BIN_DIR=$(shell go env GOPATH)/bin $(MAKE) build
