@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var EditCmd = &cobra.Command{
+var editCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit chasky config",
 	RunE: func(cmd *cobra.Command, args []string) error {

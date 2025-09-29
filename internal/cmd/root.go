@@ -31,8 +31,9 @@ func init() {
 		"log-level",
 		"Sets the log level",
 	)
-	RootCmd.AddCommand(EditCmd)
+	RootCmd.AddCommand(editCmd)
 	RootCmd.AddCommand(importCmd)
+	RootCmd.AddCommand(currentCmd)
 }
 
 var logger *zap.Logger
