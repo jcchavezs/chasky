@@ -1,17 +1,19 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"time"
 
 	"github.com/briandowns/spinner"
 	"github.com/jcchavezs/chasky/internal/config"
 	"github.com/jcchavezs/chasky/internal/environ"
+	"github.com/jcchavezs/chasky/internal/log"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
-	prettyconsole "github.com/thessem/zap-prettyconsole"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -37,19 +39,36 @@ func init() {
 	RootCmd.AddCommand(currentCmd)
 }
 
-var logger *zap.Logger
-
 var RootCmd = &cobra.Command{
 	Use:   "chasky",
 	Short: "Chasky is a tool to generate shell environments for your apps",
-	Args:  cobra.ExactArgs(1),
+	Example: `$ chasky my_app
+$ chasky my_app -- echo "I am ${MY_USER_ENV_VAR}"
+$ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
+	Args: cobra.MinimumNArgs(1),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		logger = prettyconsole.NewLogger(loglevel).
-			WithOptions(zap.ErrorOutput(zapcore.AddSync(cmd.ErrOrStderr())))
+		log.Init(loglevel, cmd.ErrOrStderr())
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+
+		var (
+			command    = os.Getenv("SHELL")
+			commandArg []string
+		)
+
+		if len(args) > 1 {
+			if !slices.Contains(os.Args, "--") { // cobra args does not pick up -- separator
+				return errors.New("unknown command")
+			}
+
+			if len(args) > 2 {
+				command = args[1]
+				commandArg = args[2:]
+			}
+		}
+
 		ctx := cmd.Context()
 		var envName string
 
@@ -61,8 +80,8 @@ var RootCmd = &cobra.Command{
 		envName = args[0]
 
 		s := spinner.New(spinner.CharSets[26], 200*time.Millisecond) // Build our new spinner
-		s.Prefix = fmt.Sprintf("Generating the environment for %q ", envName)
-		s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully\n", envName)
+		s.Prefix = fmt.Sprintf("Generating the environment for %q", envName)
+		s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully!\n", envName)
 		s.Suffix = "\n"
 		s.Start()
 
@@ -78,12 +97,13 @@ var RootCmd = &cobra.Command{
 		s.Stop()
 
 		defer func() {
-			_ = env.Close()
+			if err = env.Close(); err != nil {
+				log.Logger.Warn("Failed to close environment", zap.Error(err))
+			}
 		}()
 
 		envvars := append(env.EnvVars, fmt.Sprintf("CHASKY_ENVNAME=%s", envName))
-
-		c := exec.CommandContext(cmd.Context(), os.Getenv("SHELL"))
+		c := exec.CommandContext(cmd.Context(), command, commandArg...)
 		c.Env = append(envvars, os.Environ()...)
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
@@ -92,16 +112,17 @@ var RootCmd = &cobra.Command{
 		if err := c.Start(); err != nil {
 			return fmt.Errorf("starting environment: %w", err)
 		}
-
-		for _, msg := range env.WelcomeMsgs {
-			fmt.Println(msg)
+		if len(env.WelcomeMsgs) > 0 {
+			fmt.Println("")
+			for _, msg := range env.WelcomeMsgs {
+				fmt.Println(msg)
+			}
 		}
 
 		return c.Wait()
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-		_ = logger.Sync()
-		return nil
+		return log.Close()
 	},
 	SilenceUsage:  false,
 	SilenceErrors: true,

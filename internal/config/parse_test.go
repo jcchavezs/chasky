@@ -144,14 +144,14 @@ test_env:
 
 	// Check first output (env)
 	envOutput := envValues[0]
-	require.Equal(t, "env", envOutput.Output)
+	require.Equal(t, "env", envOutput.OutputType)
 	require.Equal(t, 1, len(envOutput.Values))
 	envSecret := envOutput.Values["ENV_SECRET"]
 	require.Equal(t, "static", envSecret.Type)
 
 	// Check second output (gcloud)
 	gcloudOutput := envValues[1]
-	require.Equal(t, "gcloud", gcloudOutput.Output)
+	require.Equal(t, "gcloud", gcloudOutput.OutputType)
 	require.Equal(t, 1, len(gcloudOutput.Values))
 	gcloudSecret := gcloudOutput.Values["GCLOUD_SECRET"]
 	require.Equal(t, "bash", gcloudSecret.Type)

@@ -40,9 +40,9 @@ func Render(ctx context.Context, tvs []config.EnvironmentValues) (Environment, e
 			vs[name] = v
 		}
 
-		o, err := output.Exec(ctx, tv.Output, vs)
+		o, err := output.Exec(ctx, tv.OutputType, vs)
 		if err != nil {
-			return Environment{}, fmt.Errorf("executing output %q: %w", tv.Output, err)
+			return Environment{}, fmt.Errorf("executing output %q: %w", tv.OutputType, err)
 		}
 
 		if o.WelcomeMsg != "" {

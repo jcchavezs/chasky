@@ -1,7 +1,6 @@
 package netrc
 
 import (
-	"context"
 	"os"
 	"strings"
 	"testing"
@@ -148,7 +147,7 @@ func TestExec(t *testing.T) {
 				netrcFile := strings.TrimPrefix(output.EnvVars[0], "NETRC_FILE=")
 				content, err := os.ReadFile(netrcFile)
 				require.NoError(t, err)
-				require.Equal(t, "machine api.github.com login myuser password mypass", string(content))
+				require.Equal(t, "machine api.github.com login myuser password mypass\n", string(content))
 			},
 		},
 		{
@@ -189,7 +188,7 @@ func TestExec(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 			output, err := Exec(ctx, tt.values)
 
 			if tt.wantErr {
@@ -223,7 +222,7 @@ func TestExec_FileCleanup(t *testing.T) {
 		"login":   "testuser",
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	output, err := Exec(ctx, values)
 	require.NoError(t, err)
 	require.NotNil(t, output.Closer)
@@ -250,7 +249,7 @@ func TestExec_WelcomeMessage(t *testing.T) {
 		"login":   "testuser",
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	output, err := Exec(ctx, values)
 	require.NoError(t, err)
 

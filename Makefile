@@ -4,7 +4,7 @@ test:
 
 .PHONY: install-tools
 install-tools: ## Install tools
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.1
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 
 check-tool-%:
