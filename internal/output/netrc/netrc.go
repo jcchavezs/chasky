@@ -99,6 +99,9 @@ $ curl --netrc-file $NETRC_FILE ....`,
 		EnvVars: []string{fmt.Sprintf("NETRC_FILE=%s", f.Name())},
 		Closer: func() error {
 			_ = f.Close()
+			defer func() {
+				f = nil // resets the cache
+			}()
 			log.Logger.Debug("Deleting temporary netrc file")
 			return os.Remove(f.Name())
 		},

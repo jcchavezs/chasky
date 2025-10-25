@@ -11,6 +11,10 @@ import (
 	"go.uber.org/zap"
 )
 
+func init() {
+	editCmd.Flags().String("editor", "", "Editor to use for editing the config file")
+}
+
 var editCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit chasky config",
@@ -20,8 +24,8 @@ var editCmd = &cobra.Command{
 			return fmt.Errorf("getting config path: %w", err)
 		}
 
-		editor, foundEditor := getEditor()
-		if !foundEditor {
+		editor, found := getEditor(cmd)
+		if !found {
 			log.Logger.Warn("EDITOR env var not found, using nano")
 		}
 
@@ -34,7 +38,13 @@ var editCmd = &cobra.Command{
 	},
 }
 
-func getEditor() (string, bool) {
+func getEditor(cmd *cobra.Command) (string, bool) {
+	if argEditor, err := cmd.Flags().GetString("editor"); err != nil {
+		log.Logger.Error("getting editor from flag", zap.Error(err))
+	} else if argEditor != "" {
+		return argEditor, true
+	}
+
 	if editor := os.Getenv("EDITOR"); editor == "" {
 		return "nano", false
 	} else {

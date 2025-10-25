@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -40,13 +42,33 @@ func init() {
 var RootCmd = &cobra.Command{
 	Use:   "chasky",
 	Short: "Chasky is a tool to generate shell environments for your apps",
-	Args:  cobra.ExactArgs(1),
+	Example: `$ chasky my_app # Launches a shell with the environment for "my_app"
+$ chasky my_app -- echo "I am ${MY_ENV_VAR}" # Runs the command with the environment for "my_app"
+`,
+	Args: cobra.MinimumNArgs(1),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		log.Init(loglevel, cmd.ErrOrStderr())
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
+
+		var (
+			command    = os.Getenv("SHELL")
+			commandArg []string
+		)
+
+		if len(args) > 1 {
+			if !slices.Contains(os.Args, "--") { // cobra args does not pick up -- separator
+				return errors.New("unknown command")
+			}
+
+			if len(args) > 2 {
+				command = args[1]
+				commandArg = args[2:]
+			}
+		}
+
 		ctx := cmd.Context()
 		var envName string
 
@@ -79,8 +101,7 @@ var RootCmd = &cobra.Command{
 		}()
 
 		envvars := append(env.EnvVars, fmt.Sprintf("CHASKY_ENVNAME=%s", envName))
-
-		c := exec.CommandContext(cmd.Context(), os.Getenv("SHELL"))
+		c := exec.CommandContext(cmd.Context(), command, commandArg...)
 		c.Env = append(envvars, os.Environ()...)
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
