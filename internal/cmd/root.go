@@ -31,8 +31,10 @@ func init() {
 		"log-level",
 		"Sets the log level",
 	)
-	RootCmd.AddCommand(EditCmd)
+	RootCmd.AddCommand(listCmd)
+	RootCmd.AddCommand(editCmd)
 	RootCmd.AddCommand(importCmd)
+	RootCmd.AddCommand(currentCmd)
 }
 
 var RootCmd = &cobra.Command{
