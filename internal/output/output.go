@@ -22,7 +22,7 @@ func Exec(ctx context.Context, name string, values map[string]string) (types.Out
 	case "netrc":
 		return netrc.Exec(ctx, values)
 	default:
-		log.Logger.Debug("unknown output type, defaulting to env")
+		log.Logger.Debug("Unknown output type, defaulting to env")
 		return env.Exec(ctx, values)
 	}
 }
