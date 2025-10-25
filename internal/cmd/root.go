@@ -42,9 +42,9 @@ func init() {
 var RootCmd = &cobra.Command{
 	Use:   "chasky",
 	Short: "Chasky is a tool to generate shell environments for your apps",
-	Example: `$ chasky my_app # Launches a shell with the environment for "my_app"
-$ chasky my_app -- echo "I am ${MY_ENV_VAR}" # Runs the command with the environment for "my_app"
-`,
+	Example: `$ chasky my_app
+$ chasky my_app -- echo "I am ${MY_USER_ENV_VAR}"
+$ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 	Args: cobra.MinimumNArgs(1),
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		log.Init(loglevel, cmd.ErrOrStderr())
@@ -97,7 +97,9 @@ $ chasky my_app -- echo "I am ${MY_ENV_VAR}" # Runs the command with the environ
 		s.Stop()
 
 		defer func() {
-			_ = env.Close()
+			if err = env.Close(); err != nil {
+				log.Logger.Warn("Failed to close environment", zap.Error(err))
+			}
 		}()
 
 		envvars := append(env.EnvVars, fmt.Sprintf("CHASKY_ENVNAME=%s", envName))
