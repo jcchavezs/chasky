@@ -1,8 +1,10 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/goccy/go-yaml"
 	"github.com/goccy/go-yaml/parser"
@@ -59,4 +61,34 @@ type EnvironmentValues struct {
 	Values     map[string]Secret `yaml:"values"`
 }
 
-type Config map[string][]EnvironmentValues
+type ConfigEntry struct {
+	Description string
+	Values      []EnvironmentValues
+}
+
+type Config map[string]ConfigEntry
+
+func makeConfigYAMLUnmarshaler(cm yaml.CommentMap) func(ctx context.Context, t *Config, b []byte) error {
+	return func(ctx context.Context, t *Config, b []byte) error {
+		var rCfg map[string][]EnvironmentValues
+
+		if err := yaml.Unmarshal(b, &rCfg); err != nil {
+			return fmt.Errorf("unmarshaling raw configuration: %w", err)
+		}
+
+		var ut = *t
+		for k, v := range rCfg {
+			var desc string
+			if cmts, ok := cm["$."+k]; ok && len(cmts) > 0 {
+				desc = strings.TrimSpace(strings.Join(cmts[0].Texts, " "))
+			}
+
+			ut[k] = ConfigEntry{
+				Values:      v,
+				Description: desc,
+			}
+		}
+
+		return nil
+	}
+}

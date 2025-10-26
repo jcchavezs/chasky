@@ -11,7 +11,7 @@ import (
 
 var importCmd = &cobra.Command{
 	Use:   "import <source> [key1=val1 [key2=val2 [...]]]",
-	Short: "Imports a secret into a source",
+	Short: "Imports a secret into a source, by default keyring",
 	Args:  cobra.MinimumNArgs(2),
 	Example: `$ chasky import keyring OPENAI_API_KEY=foo
 $ chasky import keyring JIRA_EMAIL=bar JIRA_API_TOKEN=baz

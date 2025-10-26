@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -23,13 +24,13 @@ func ConfigPath() (string, error) {
 	return filepath.Join(dir, ".chasky.yaml"), nil
 }
 
-func Parse() (Config, error) {
+func Parse(ctx context.Context) (Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
 		return Config{}, fmt.Errorf("getting config path: %w", err)
 	}
 
-	cfg, err := parse(path)
+	cfg, err := parse(ctx, path)
 	if errors.Is(err, os.ErrNotExist) {
 		log.Logger.Debug("config file does not exist, returning empty config", zap.String("path", path))
 		return Config{}, nil
@@ -38,16 +39,25 @@ func Parse() (Config, error) {
 	return cfg, err
 }
 
-func parse(filepath string) (Config, error) {
-	config, err := os.ReadFile(filepath)
+func parse(ctx context.Context, filepath string) (Config, error) {
+	b, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("reading file: %w", err)
 	}
 
-	var m = Config{}
-	if err = yaml.Unmarshal(config, &m); err != nil {
+	var (
+		cm  = yaml.CommentMap{}
+		cfg = Config{}
+	)
+
+	if err = yaml.UnmarshalContext(
+		ctx,
+		b, &cfg,
+		yaml.CommentToMap(cm),
+		yaml.CustomUnmarshalerContext(makeConfigYAMLUnmarshaler(cm)),
+	); err != nil {
 		return nil, fmt.Errorf("unmarshaling config: %w", err)
 	}
 
-	return m, nil
+	return cfg, nil
 }

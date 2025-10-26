@@ -40,8 +40,8 @@ func init() {
 }
 
 var RootCmd = &cobra.Command{
-	Use:   "chasky",
-	Short: "Chasky is a tool to generate shell environments for your apps",
+	Use:   "chasky [command|environ]",
+	Short: "Chasky is a tool to generate shell environs for your apps",
 	Example: `$ chasky my_app
 $ chasky my_app -- echo "I am ${MY_USER_ENV_VAR}"
 $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
@@ -72,7 +72,7 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		ctx := cmd.Context()
 		var envName string
 
-		conf, err := config.Parse()
+		conf, err := config.Parse(ctx)
 		if err != nil {
 			return err
 		}
@@ -85,12 +85,12 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		s.Suffix = "\n"
 		s.Start()
 
-		appValues, ok := conf[envName]
+		cfg, ok := conf[envName]
 		if !ok {
 			return fmt.Errorf("unknown environment %s", envName)
 		}
 
-		env, err := environ.Render(ctx, appValues)
+		env, err := environ.Render(ctx, cfg.Values)
 		if err != nil {
 			return fmt.Errorf("rendering environment: %w", err)
 		}

@@ -22,7 +22,7 @@ missing closing bracket
 	err := os.WriteFile(invalidFile, []byte(invalidContent), 0644)
 	require.NoError(t, err)
 
-	config, err := parse(invalidFile)
+	config, err := parse(t.Context(), invalidFile)
 	require.Error(t, err)
 	require.Nil(t, config)
 	require.Contains(t, err.Error(), "unmarshaling config")
@@ -36,7 +36,7 @@ func TestParseEmptyFile(t *testing.T) {
 	err := os.WriteFile(emptyFile, []byte(""), 0644)
 	require.NoError(t, err)
 
-	config, err := parse(emptyFile)
+	config, err := parse(t.Context(), emptyFile)
 	require.NoError(t, err)
 	require.Nil(t, config)
 	require.Equal(t, 0, len(config))
@@ -58,7 +58,7 @@ test_env:
 	err := os.WriteFile(invalidFile, []byte(content), 0644)
 	require.NoError(t, err)
 
-	config, err := parse(invalidFile)
+	config, err := parse(t.Context(), invalidFile)
 	require.Error(t, err)
 	require.Nil(t, config)
 	require.Contains(t, err.Error(), "unmarshaling config")
@@ -85,16 +85,16 @@ test_env:
 	err := os.WriteFile(validFile, []byte(content), 0644)
 	require.NoError(t, err)
 
-	config, err := parse(validFile)
+	config, err := parse(t.Context(), validFile)
 	require.NoError(t, err)
 	require.NotNil(t, config)
 	require.Equal(t, 1, len(config))
 
-	envValues, exists := config["test_env"]
+	entry, exists := config["test_env"]
 	require.True(t, exists)
-	require.Equal(t, 1, len(envValues))
+	require.Equal(t, 1, len(entry.Values))
 
-	values := envValues[0].Values
+	values := entry.Values[0].Values
 	require.Equal(t, 2, len(values))
 
 	// Check bash secret
@@ -133,24 +133,24 @@ test_env:
 	err := os.WriteFile(multiOutputFile, []byte(content), 0644)
 	require.NoError(t, err)
 
-	config, err := parse(multiOutputFile)
+	config, err := parse(t.Context(), multiOutputFile)
 	require.NoError(t, err)
 	require.NotNil(t, config)
 	require.Equal(t, 1, len(config))
 
-	envValues, exists := config["test_env"]
+	entry, exists := config["test_env"]
 	require.True(t, exists)
-	require.Equal(t, 2, len(envValues))
+	require.Equal(t, 2, len(entry.Values))
 
 	// Check first output (env)
-	envOutput := envValues[0]
+	envOutput := entry.Values[0]
 	require.Equal(t, "env", envOutput.OutputType)
 	require.Equal(t, 1, len(envOutput.Values))
 	envSecret := envOutput.Values["ENV_SECRET"]
 	require.Equal(t, "static", envSecret.Type)
 
 	// Check second output (gcloud)
-	gcloudOutput := envValues[1]
+	gcloudOutput := entry.Values[1]
 	require.Equal(t, "gcloud", gcloudOutput.OutputType)
 	require.Equal(t, 1, len(gcloudOutput.Values))
 	gcloudSecret := gcloudOutput.Values["GCLOUD_SECRET"]
