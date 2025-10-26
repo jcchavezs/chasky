@@ -15,6 +15,8 @@ func init() {
 	editCmd.Flags().String("editor", "", "Editor to use for editing the config file")
 }
 
+const defaultEditor = "nano"
+
 var editCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit chasky config",
@@ -26,7 +28,7 @@ var editCmd = &cobra.Command{
 
 		editor, found := getEditor(cmd)
 		if !found {
-			log.Logger.Warn("EDITOR env var not found, using nano")
+			log.Logger.Warn(fmt.Sprintf("EDITOR env var not found, using %s", defaultEditor))
 		}
 
 		log.Logger.Info("Launching editor", zap.String("editor", editor), zap.String("path", path))
@@ -46,7 +48,7 @@ func getEditor(cmd *cobra.Command) (string, bool) {
 	}
 
 	if editor := os.Getenv("EDITOR"); editor == "" {
-		return "nano", false
+		return defaultEditor, false
 	} else {
 		return editor, true
 	}
