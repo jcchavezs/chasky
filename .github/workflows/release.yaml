@@ -24,6 +24,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Should add --snapshot arg?
+        if: ${{ startsWith(github.ref, 'refs/tags/') == false }}
+        id: add-snapshot
+        run: echo "flag=--snapshot" >> $GITHUB_OUTPUT
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -31,12 +36,12 @@ jobs:
           distribution: goreleaser
           # 'latest', 'nightly', or a semver
           version: "~> v2"
-          args: release --clean
+          args: release --clean ${{ steps.add-snapshot.outputs.flag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload assets
-        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v5
         with:
           name: chasky
