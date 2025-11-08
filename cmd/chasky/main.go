@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
@@ -36,8 +37,13 @@ func main() {
 	}()
 
 	if err := cmd.RootCmd.ExecuteContext(ctx); err != nil {
-		fmt.Printf("ERROR: %v.\n", err)
-		exitCode = 1
+		if xErr, ok := err.(*exec.ExitError); ok {
+			exitCode = xErr.ExitCode()
+		} else {
+			fmt.Printf("ERROR: %v.\n", err)
+			exitCode = 1
+		}
+
 		return
 	}
 }
