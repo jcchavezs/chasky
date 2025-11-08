@@ -35,12 +35,18 @@ $ chasky myapp
 Generating env vars for "myapp"...
 ```
 
+or inject the values on the fly:
+
+```console
+chasky myapp -- <command> <arg1> <arg2> ...
+```
+
 ### Migrating secrets
 
 A good way to start migrating your secrets into chasky environments is to onboard them into a keyring or other password manager.
 
 ```console
-$ chasky import keyring MY_KEY=MY_VALUE
+chasky import keyring MY_KEY=MY_VALUE
 ```
 
 ## Motivation
