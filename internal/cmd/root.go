@@ -54,8 +54,9 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		cmd.SilenceUsage = true
 
 		var (
-			command    = os.Getenv("SHELL")
-			commandArg []string
+			execCommand bool
+			command     = os.Getenv("SHELL")
+			commandArg  []string
 		)
 
 		if len(args) > 1 {
@@ -64,6 +65,7 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 			}
 
 			if len(args) > 2 {
+				execCommand = true
 				command = args[1]
 				commandArg = args[2:]
 			}
@@ -112,10 +114,12 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		if err := c.Start(); err != nil {
 			return fmt.Errorf("starting environment: %w", err)
 		}
-		if len(env.WelcomeMsgs) > 0 {
-			fmt.Println("")
-			for _, msg := range env.WelcomeMsgs {
-				fmt.Println(msg)
+		if !execCommand {
+			if len(env.WelcomeMsgs) > 0 {
+				fmt.Println("")
+				for _, msg := range env.WelcomeMsgs {
+					fmt.Println(msg)
+				}
 			}
 		}
 

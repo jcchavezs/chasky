@@ -50,7 +50,7 @@ func Resolve(ctx context.Context, rawConfig []byte) (string, error) {
 	return val, nil
 }
 
-func Persist(ctx context.Context, key, value string) (string, error) {
+func Persist(ctx context.Context, key, value string, force bool) (string, error) {
 	user, err := getCurrentUser()
 	if err != nil {
 		return "", fmt.Errorf("getting current user: %w", err)
