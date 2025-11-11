@@ -1,0 +1,48 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "*"
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Should add --snapshot arg?
+        if: ${{ startsWith(github.ref, 'refs/tags/') == false }}
+        id: add-snapshot
+        run: echo "flag=--snapshot" >> $GITHUB_OUTPUT
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          # either 'goreleaser' (default) or 'goreleaser-pro'
+          distribution: goreleaser
+          # 'latest', 'nightly', or a semver
+          version: "~> v2"
+          args: release --clean ${{ steps.add-snapshot.outputs.flag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload assets
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: chasky
+          path: dist/*

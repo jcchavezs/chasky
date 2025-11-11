@@ -54,9 +54,9 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		cmd.SilenceUsage = true
 
 		var (
-			execCommand bool
-			command     = os.Getenv("SHELL")
-			commandArg  []string
+			command         = os.Getenv("SHELL")
+			commandArg      []string
+			isCustomCommand bool
 		)
 
 		if len(args) > 1 {
@@ -65,9 +65,9 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 			}
 
 			if len(args) > 2 {
-				execCommand = true
 				command = args[1]
 				commandArg = args[2:]
+				isCustomCommand = true
 			}
 		}
 
@@ -81,11 +81,15 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 
 		envName = args[0]
 
-		s := spinner.New(spinner.CharSets[26], 200*time.Millisecond) // Build our new spinner
-		s.Prefix = fmt.Sprintf("Generating the environment for %q", envName)
-		s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully!\n", envName)
-		s.Suffix = "\n"
-		s.Start()
+		var afterRender = func() {}
+		if !isCustomCommand {
+			s := spinner.New(spinner.CharSets[26], 200*time.Millisecond) // Build our new spinner
+			s.Prefix = fmt.Sprintf("Generating the environment for %q", envName)
+			s.FinalMSG = fmt.Sprintf("Generated environment for %q successfully!\n", envName)
+			s.Suffix = "\n"
+			s.Start()
+			afterRender = s.Stop
+		}
 
 		cfg, ok := conf[envName]
 		if !ok {
@@ -96,7 +100,8 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		if err != nil {
 			return fmt.Errorf("rendering environment: %w", err)
 		}
-		s.Stop()
+
+		afterRender()
 
 		defer func() {
 			if err = env.Close(); err != nil {
@@ -114,7 +119,8 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		if err := c.Start(); err != nil {
 			return fmt.Errorf("starting environment: %w", err)
 		}
-		if !execCommand {
+
+		if !isCustomCommand {
 			if len(env.WelcomeMsgs) > 0 {
 				fmt.Println("")
 				for _, msg := range env.WelcomeMsgs {

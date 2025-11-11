@@ -1,6 +1,6 @@
 module github.com/jcchavezs/chasky
 
-go 1.25.1
+go 1.25.3
 
 require (
 	github.com/briandowns/spinner v1.23.2
