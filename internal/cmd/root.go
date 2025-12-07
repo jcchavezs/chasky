@@ -53,6 +53,10 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 
+		if os.Getenv("CHASKY_ENVNAME") != "" {
+			return errors.New("cannot run chasky inside a chasky environment")
+		}
+
 		var (
 			command         = os.Getenv("SHELL")
 			commandArg      []string
@@ -97,17 +101,18 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		}
 
 		env, err := environ.Render(ctx, cfg.Values)
+		defer func() {
+			// Ensure we run the post hooks even on render error
+			if err = env.Close(); err != nil {
+				log.Logger.Warn("Failed to close environment", zap.Error(err))
+			}
+		}()
+
 		if err != nil {
 			return fmt.Errorf("rendering environment: %w", err)
 		}
 
 		afterRender()
-
-		defer func() {
-			if err = env.Close(); err != nil {
-				log.Logger.Warn("Failed to close environment", zap.Error(err))
-			}
-		}()
 
 		envvars := append(env.EnvVars, fmt.Sprintf("CHASKY_ENVNAME=%s", envName))
 		c := exec.CommandContext(cmd.Context(), command, commandArg...)
