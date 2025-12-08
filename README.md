@@ -41,13 +41,9 @@ or inject the values on the fly:
 chasky myapp -- <command> <arg1> <arg2> ...
 ```
 
-### Migrating secrets
+## Documentation
 
-A good way to start migrating your secrets into chasky environments is to onboard them into a keyring or other password manager.
-
-```console
-chasky import keyring MY_KEY=MY_VALUE
-```
+All documentation for chasky is hosted under [the wiki](https://github.com/jcchavezs/chasky/wiki).
 
 ## Motivation
 
