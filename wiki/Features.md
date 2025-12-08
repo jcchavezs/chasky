@@ -30,16 +30,24 @@ codex: # Codex APP
 
 #### Pre
 
-Runs arbitrary actions before the environ is created. This is useful to execute logins and set configs
+Runs arbitrary actions before the environ is created. This is useful to execute logins and set configs.
 
 #### Post
 
-Runs arbitrary actions after the environ is closed. This is useful to execute logouts to avoid idle sessions
+Runs arbitrary actions after the environ is closed. This is useful to execute logouts to avoid idle sessions.
+
+### Inline environs
+
+Creates an environment and runs a command without exporting the environ to the shell.
+
+```bash
+$ chasky my_app -- echo "I am ${MY_USER_ENV_VAR}"
+```
 
 ## Migrating secrets
 
 A good way to start migrating your secrets into chasky environments is to onboard them into a keyring or other password manager.
 
 ```console
-chasky import keyring MY_KEY=MY_VALUE
+$ chasky import keyring MY_KEY=MY_VALUE
 ```
