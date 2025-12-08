@@ -36,3 +36,10 @@ Runs arbitrary actions before the environ is created. This is useful to execute 
 
 Runs arbitrary actions after the environ is closed. This is useful to execute logouts to avoid idle sessions
 
+## Migrating secrets
+
+A good way to start migrating your secrets into chasky environments is to onboard them into a keyring or other password manager.
+
+```console
+chasky import keyring MY_KEY=MY_VALUE
+```
