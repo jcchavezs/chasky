@@ -26,3 +26,6 @@ build:
 
 install:
 	@BIN_DIR=$(shell go env GOPATH)/bin $(MAKE) build
+
+generate:
+	@go generate ./...
