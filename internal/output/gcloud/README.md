@@ -4,7 +4,7 @@
 
 ```json
 {
-  "client_id": "...",
+  "client_id": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com",
   "client_secret": "...",
   "quota_project_id": "your google project",
   "refresh_token": "...",
@@ -16,11 +16,11 @@ To configure it you need to get the secret from any of the supported sources and
 fill the required values:
 
 ```yaml
-- output: dotenv
+- output: gcloud
   values:
     client_id:
       static:
-        value: "YOURS3BUCKET"
+        value: 764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com
       type: static
 
     client_secret:
