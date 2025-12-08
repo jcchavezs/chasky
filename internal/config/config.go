@@ -58,6 +58,8 @@ func (s Secret) MarshalYAML() ([]byte, error) {
 
 type EnvironmentValues struct {
 	OutputType string            `yaml:"output,omitempty"`
+	Pre        PreList           `yaml:"pre,omitempty"`
+	Post       PostList          `yaml:"post,omitempty"`
 	Values     map[string]Secret `yaml:"values"`
 }
 

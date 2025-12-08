@@ -9,10 +9,13 @@ import (
 	"github.com/jcchavezs/chasky/internal/output/gcloud"
 	"github.com/jcchavezs/chasky/internal/output/netrc"
 	"github.com/jcchavezs/chasky/internal/output/types"
+	"github.com/jcchavezs/chasky/internal/output/variables"
 )
 
 func Exec(ctx context.Context, name string, values map[string]string) (types.Output, error) {
 	switch name {
+	case "variables":
+		return variables.Exec(ctx, values)
 	case "dotenv":
 		return dotenv.Exec(ctx, values)
 	case "env":
@@ -22,7 +25,7 @@ func Exec(ctx context.Context, name string, values map[string]string) (types.Out
 	case "netrc":
 		return netrc.Exec(ctx, values)
 	default:
-		log.Logger.Debug("Unknown output type, defaulting to env")
+		log.Logger.Warn("Unknown output type, defaulting to env")
 		return env.Exec(ctx, values)
 	}
 }

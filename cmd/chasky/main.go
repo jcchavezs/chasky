@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -37,7 +38,9 @@ func main() {
 	}()
 
 	if err := cmd.RootCmd.ExecuteContext(ctx); err != nil {
-		if xErr, ok := err.(*exec.ExitError); ok {
+		var xErr *exec.ExitError
+		if errors.As(err, &xErr) {
+			_, _ = os.Stderr.Write(xErr.Stderr)
 			exitCode = xErr.ExitCode()
 		} else {
 			fmt.Printf("ERROR: %v.\n", err)
