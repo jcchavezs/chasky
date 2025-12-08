@@ -24,6 +24,11 @@ jobs:
       - name: Install tools
         run: make install-tools
 
+      - name: Run generate
+        run: |
+          make generate
+          git diff --exit-code
+
       - name: Run lint
         run: make lint
 
