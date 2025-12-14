@@ -4,6 +4,14 @@ Chasky is a secrets dealer. Declare the secrets you need on every application as
 
 ## Installation
 
+### Using the install script (recommended)
+
+```console
+curl -sSL https://raw.githubusercontent.com/jcchavezs/chasky/main/install.sh | bash
+```
+
+### Using Go
+
 ```console
 go install github.com/jcchavezs/chasky/cmd/chasky@latest
 ```
