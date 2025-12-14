@@ -135,7 +135,7 @@ echo "✓ Chasky ${LATEST_VERSION} installed successfully!"
 echo ""
 
 # Check if install dir is in PATH
-if echo "${PATH}" | grep -q "${INSTALL_DIR}"; then
+if echo ":${PATH}:" | grep -q ":${INSTALL_DIR}:"; then
     echo "You can now use 'chasky' from anywhere."
 else
     echo "⚠️  Make sure ${INSTALL_DIR} is in your PATH."
