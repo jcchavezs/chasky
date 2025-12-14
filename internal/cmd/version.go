@@ -13,7 +13,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version number of chasky",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Fprintf(cmd.OutOrStdout(), "chasky %s\n", version)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "chasky %s\n", version)
 	},
 }
 
