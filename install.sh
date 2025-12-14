@@ -35,7 +35,7 @@ BINARY_NAME="chasky"
 
 echo "Detecting latest version..."
 # Try to get version from GitHub API first
-LATEST_VERSION=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+LATEST_VERSION=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4 || echo "")
 
 # If API fails, try scraping from releases page
 if [ -z "${LATEST_VERSION}" ]; then
@@ -65,28 +65,56 @@ fi
 
 echo "Extracting..."
 if [ "${EXT}" = "zip" ]; then
-    unzip -q "${ARCHIVE_NAME}"
+    if ! unzip -q "${ARCHIVE_NAME}"; then
+        echo "Failed to extract ${ARCHIVE_NAME}"
+        rm -rf "${TEMP_DIR}"
+        exit 1
+    fi
 else
-    tar -xzf "${ARCHIVE_NAME}"
+    if ! tar -xzf "${ARCHIVE_NAME}"; then
+        echo "Failed to extract ${ARCHIVE_NAME}"
+        rm -rf "${TEMP_DIR}"
+        exit 1
+    fi
 fi
 
 # Determine installation directory
 if [ -w "/usr/local/bin" ]; then
     INSTALL_DIR="/usr/local/bin"
-elif [ -w "${HOME}/.local/bin" ]; then
+else
     INSTALL_DIR="${HOME}/.local/bin"
     mkdir -p "${INSTALL_DIR}"
-else
-    INSTALL_DIR="${HOME}/bin"
-    mkdir -p "${INSTALL_DIR}"
+    # If we still can't write after creating the directory, fall back to ~/bin
+    if [ ! -w "${INSTALL_DIR}" ]; then
+        INSTALL_DIR="${HOME}/bin"
+        mkdir -p "${INSTALL_DIR}"
+    fi
 fi
 
 echo "Installing to ${INSTALL_DIR}..."
 if [ "${OS_NAME}" = "Windows" ]; then
-    mv "${BINARY_NAME}.exe" "${INSTALL_DIR}/"
+    if [ ! -f "${BINARY_NAME}.exe" ]; then
+        echo "Error: ${BINARY_NAME}.exe not found in archive"
+        rm -rf "${TEMP_DIR}"
+        exit 1
+    fi
+    if ! mv "${BINARY_NAME}.exe" "${INSTALL_DIR}/"; then
+        echo "Failed to install ${BINARY_NAME}.exe to ${INSTALL_DIR}"
+        rm -rf "${TEMP_DIR}"
+        exit 1
+    fi
     chmod +x "${INSTALL_DIR}/${BINARY_NAME}.exe"
 else
-    mv "${BINARY_NAME}" "${INSTALL_DIR}/"
+    if [ ! -f "${BINARY_NAME}" ]; then
+        echo "Error: ${BINARY_NAME} not found in archive"
+        rm -rf "${TEMP_DIR}"
+        exit 1
+    fi
+    if ! mv "${BINARY_NAME}" "${INSTALL_DIR}/"; then
+        echo "Failed to install ${BINARY_NAME} to ${INSTALL_DIR}"
+        rm -rf "${TEMP_DIR}"
+        exit 1
+    fi
     chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
 fi
 
