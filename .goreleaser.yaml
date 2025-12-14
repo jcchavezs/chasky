@@ -19,6 +19,8 @@ builds:
   - env:
       - CGO_ENABLED=0
     main: ./cmd/chasky
+    ldflags:
+      - -X github.com/jcchavezs/chasky/internal/cmd.version={{.Version}}
     goos:
       - linux
       - windows

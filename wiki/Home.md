@@ -1,6 +1,6 @@
 # Chasky
 
-Chasky is a secrets dealer. Declare the secrets you need on every application as environment variables or other setups (e.g. ephemeral netrc files) and use your apps without the security concern of leaking secrets on terminal history or abandoned `.env` or `.envrc` files.
+Chasky is a secrets dealer. Declare the secrets you need on every application as environment variables or other setups (e.g. ephemeral .env or .netrc files) and use your apps without the security concern of leaking secrets on terminal history or abandoned `.env` files.
 
 ## Installation
 

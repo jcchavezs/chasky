@@ -1,18 +1,18 @@
 ## Environ
 
 The most common use case for `chasky` is to generate an environ (through the Shell) that
-include a set of environment variables to be able to use a certain tool. However
-along with the environment variables we can leverage some other features.
+inject a set of environment variables to be consumed by a tool. However
+along with the environment variables we can leverage some other features:
 
 ### Hooks
 
 Hooks allow to run arbitrary actions before/after an environ is run. This is useful
-to run certain actions that are needed to run the desired tool.
+to run actions that are pre-requisites in the usage of the desired tool.
 
 For example:
 
 ```yaml
-codex: # Codex APP
+codex: # (OpenAI) Codex CLI
 - output: variables # Keep the secrets in the variables
   pre: # Before the environ is created
     - type: command
@@ -20,10 +20,11 @@ codex: # Codex APP
       command: "echo {{ $.OPENAI_API_KEY }} | codex login --with-api-key" 
   post: # After the environ is closed
     - type: command
+      # Logout from codex
       command: codex logout
   values:
     OPENAI_API_KEY:
-      bash:
+      bash: # Read the secret from 1Password (op)
         command: op read op://Employee/OpenAI/password
       type: bash
 ```
@@ -34,14 +35,14 @@ Runs arbitrary actions before the environ is created. This is useful to execute 
 
 #### Post
 
-Runs arbitrary actions after the environ is closed. This is useful to execute logouts to avoid idle sessions.
+Runs arbitrary actions after the environ is closed. This is useful to execute logouts to avoid orphaned sessions.
 
 ### Inline environs
 
 Creates an environment and runs a command without exporting the environ to the shell.
 
 ```bash
-$ chasky my_app -- echo "I am ${MY_USER_ENV_VAR}"
+chasky my_app -- echo "I am ${MY_USER_ENV_VAR}"
 ```
 
 ## Migrating secrets
@@ -50,4 +51,16 @@ A good way to start migrating your secrets into chasky environments is to onboar
 
 ```console
 $ chasky import keyring MY_KEY=MY_VALUE
+
+Credentials successfully imported into keyring.
+
+To use them in a given environment, type `chasky edit` and add:
+
+---
+# ...
+- values:
+  - MY_KEY:
+      type: keyring
+      keyring:
+        key: com.github.jcchavezs.pakay-my_key
 ```
