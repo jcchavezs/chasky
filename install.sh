@@ -35,11 +35,11 @@ BINARY_NAME="chasky"
 
 echo "Detecting latest version..."
 # Try to get version from GitHub API first
-LATEST_VERSION=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4 || echo "")
+LATEST_VERSION=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4 || echo "")
 
 # If API fails, try scraping from releases page
 if [ -z "${LATEST_VERSION}" ]; then
-    LATEST_VERSION=$(curl -sSL "https://github.com/${REPO}/releases/latest" 2>/dev/null | grep -o 'tag/v[0-9]*\.[0-9]*\.[0-9]*' | head -1 | cut -d'/' -f2 || echo "")
+    LATEST_VERSION=$(curl -sSL "https://github.com/${REPO}/releases/latest" 2>/dev/null | grep -o 'tag/v[0-9]\+\.[0-9]\+\.[0-9]\+[^"]*' | head -1 | cut -d'/' -f2 || echo "")
 fi
 
 if [ -z "${LATEST_VERSION}" ]; then
@@ -83,11 +83,19 @@ if [ -w "/usr/local/bin" ]; then
     INSTALL_DIR="/usr/local/bin"
 else
     INSTALL_DIR="${HOME}/.local/bin"
-    mkdir -p "${INSTALL_DIR}"
-    # If we still can't write after creating the directory, fall back to ~/bin
-    if [ ! -w "${INSTALL_DIR}" ]; then
+    if ! mkdir -p "${INSTALL_DIR}" 2>/dev/null; then
         INSTALL_DIR="${HOME}/bin"
-        mkdir -p "${INSTALL_DIR}"
+        if ! mkdir -p "${INSTALL_DIR}" 2>/dev/null; then
+            echo "Failed to create installation directory"
+            rm -rf "${TEMP_DIR}"
+            exit 1
+        fi
+    fi
+    # Verify the directory is writable
+    if [ ! -w "${INSTALL_DIR}" ]; then
+        echo "Installation directory ${INSTALL_DIR} is not writable"
+        rm -rf "${TEMP_DIR}"
+        exit 1
     fi
 fi
 
