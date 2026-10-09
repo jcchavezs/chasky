@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"os"
 	"strings"
 
 	"github.com/jcchavezs/chasky/internal/log"
+	"github.com/jcchavezs/chasky/internal/output/file"
 	"github.com/jcchavezs/chasky/internal/output/types"
 )
 
@@ -35,7 +35,7 @@ func (n netRC) String() string {
 	return strings.Join(b, " ")
 }
 
-var f *os.File
+var sink file.Sink
 
 func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 	if len(values) == 0 {
@@ -73,19 +73,17 @@ func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 		err     error
 		isFirst = false
 	)
-	if f == nil {
+	if sink == nil {
 		isFirst = true
-		f, err = os.CreateTemp(os.TempDir(), ".netrc")
+		sink, err = file.NewSink(ctx, ".netrc")
 		if err != nil {
 			return types.Output{}, fmt.Errorf("creating credentials file: %w", err)
 		}
 	}
 
-	if _, err := f.WriteString(creds.String()); err != nil {
+	if _, err := sink.Write([]byte(creds.String() + "\n")); err != nil {
 		return types.Output{}, fmt.Errorf("writing credentials: %w", err)
 	}
-
-	_, _ = fmt.Fprintln(f, "")
 
 	if !isFirst {
 		return types.Output{}, nil
@@ -96,14 +94,13 @@ func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 
 For example:
 $ curl --netrc-file $NETRC_FILE ....`,
-		EnvVars: []string{fmt.Sprintf("NETRC_FILE=%s", f.Name())},
+		EnvVars: []string{fmt.Sprintf("NETRC_FILE=%s", sink.Path())},
 		Closer: func() error {
-			_ = f.Close()
 			defer func() {
-				f = nil // resets the cache
+				sink = nil // resets the cache
 			}()
 			log.Logger.Debug("Deleting temporary netrc file")
-			return os.Remove(f.Name())
+			return sink.Close()
 		},
 	}, nil
 }

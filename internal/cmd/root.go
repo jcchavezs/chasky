@@ -11,6 +11,7 @@ import (
 	"github.com/jcchavezs/chasky/internal/config"
 	"github.com/jcchavezs/chasky/internal/environ"
 	"github.com/jcchavezs/chasky/internal/log"
+	"github.com/jcchavezs/chasky/internal/output/file"
 	"github.com/spf13/cobra"
 	"github.com/thediveo/enumflag/v2"
 	"go.uber.org/zap"
@@ -26,11 +27,34 @@ var LevelIds = map[zapcore.Level][]string{
 
 var loglevel zapcore.Level = zapcore.ErrorLevel
 
+var useFIFO bool
+
+// FIFOModeIds maps the delivery modes selectable through --fifo-mode to their
+// string representation. ModeDisk is omitted on purpose: it is selected by
+// omitting --fifo rather than through --fifo-mode.
+var FIFOModeIds = map[file.Mode][]string{
+	file.ModeNamedPipe: {"named-pipe"},
+	file.ModeFD:        {"fd"},
+}
+
+var fifoMode = file.ModeNamedPipe
+
 func init() {
 	RootCmd.PersistentFlags().Var(
 		enumflag.New(&loglevel, "string", LevelIds, enumflag.EnumCaseInsensitive),
 		"log-level",
 		"Sets the log level",
+	)
+	RootCmd.Flags().BoolVar(
+		&useFIFO,
+		"fifo",
+		false,
+		"Deliver file-based outputs through an on-demand pipe instead of writing them to a temporary file on disk",
+	)
+	RootCmd.Flags().Var(
+		enumflag.New(&fifoMode, "string", FIFOModeIds, enumflag.EnumCaseInsensitive),
+		"fifo-mode",
+		"Pipe delivery mode when --fifo is set: \"named-pipe\" (a UNIX named pipe reachable by same-user processes) or \"fd\" (an anonymous pipe inherited by the spawned process and exposed as /dev/fd/N)",
 	)
 	RootCmd.AddCommand(listCmd)
 	RootCmd.AddCommand(editCmd)
@@ -89,7 +113,17 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 			return err
 		}
 
-		ctx := cmd.Context()
+		mode := file.ModeDisk
+		if useFIFO {
+			mode = fifoMode
+		}
+
+		// fdSet collects the inherited read ends used by the "fd" delivery mode.
+		// It stays empty (and its methods are no-ops) in the other modes.
+		fdSet := file.NewFDSet()
+		defer fdSet.CloseFiles()
+
+		ctx := file.WithFDSet(file.WithMode(cmd.Context(), mode), fdSet)
 
 		conf, err := config.Parse(ctx)
 		if err != nil {
@@ -131,10 +165,17 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
 		c.Stdin = os.Stdin
+		// Hand the inherited read ends to the spawned process (empty in modes
+		// other than "fd"). The first entry becomes /dev/fd/3 in the child.
+		c.ExtraFiles = fdSet.Files()
 
 		if err := c.Start(); err != nil {
 			return fmt.Errorf("starting environment: %w", err)
 		}
+
+		// The process (and its descendants) now hold the inherited descriptors,
+		// so the contents can be flushed into the pipes.
+		fdSet.Release()
 
 		if !isCustomCommand {
 			if len(env.WelcomeMsgs) > 0 {
