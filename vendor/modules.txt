@@ -17,7 +17,7 @@ github.com/davecgh/go-spew/spew
 # github.com/fatih/color v1.7.0
 ## explicit
 github.com/fatih/color
-# github.com/goccy/go-yaml v1.18.0
+# github.com/goccy/go-yaml v1.19.2
 ## explicit; go 1.21.0
 github.com/goccy/go-yaml
 github.com/goccy/go-yaml/ast

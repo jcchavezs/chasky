@@ -4,7 +4,7 @@ go 1.27.2
 
 require (
 	github.com/briandowns/spinner v1.23.2
-	github.com/goccy/go-yaml v1.18.0
+	github.com/goccy/go-yaml v1.19.2
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/thediveo/enumflag/v2 v2.0.7
