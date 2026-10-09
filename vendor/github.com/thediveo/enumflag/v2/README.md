@@ -24,7 +24,7 @@ enumeration values either with a single flag `--mode=foo,bar` or multiple flag
 calls, such as `--mode=foo --mode=bar`.
 
 Application programmers then simply deal with enumeration values in form of
-uints (or ints, _erm_, anything that satisfies `constraints.Integer`s),
+uints (or ints, _erm_, anything that satisfies `comparable`s),
 liberated from parsing strings and validating enumeration flags.
 
 For devcontainer instructions, please see the [section "DevContainer"
@@ -76,7 +76,7 @@ import (
 )
 
 // ① Define your new enum flag type. It can be derived from enumflag.Flag,
-// but it doesn't need to be as long as it satisfies constraints.Integer.
+// but it doesn't need to be as long as it satisfies comparable.
 type FooMode enumflag.Flag
 
 // ② Define the enumeration values for FooMode.
@@ -152,8 +152,7 @@ registering have to be carried out as separate instructions.
 Please note for shell completion to work, your root command needs to have at
 least one (explicit) sub command. Otherwise, `cobra` won't automatically add an
 additional `completion` sub command. For more details, please refer to cobra's
-documentation on [Generating shell
-completions](https://github.com/spf13/cobra/blob/main/shell_completions.md).
+documentation on [Generating shellcompletions](https://github.com/spf13/cobra/blob/main/site/content/completions/_index.md).
 
 ### Use Existing Enum Types
 
@@ -307,7 +306,7 @@ import (
 )
 
 // ① Define your new enum flag type. It can be derived from enumflag.Flag,
-// but it doesn't need to be as long as it satisfies constraints.Integer.
+// but it doesn't need to be as long as it satisfies comparable.
 type MooMode enumflag.Flag
 
 // ② Define the enumeration values for FooMode.
@@ -358,24 +357,11 @@ func Example_slice() {
 2. in VSCode: Ctrl+Shift+P, "Dev Containers: Open Workspace in Container..."
 3. select `enumflag.code-workspace` and off you go...
 
-## VSCode Tasks
+## Supported Go Versions
 
-The included `enumflag.code-workspace` defines the following tasks:
-
-- **Build workspace** task: builds all, including the shared library test
-  plugin.
-
-- **Run all tests with coverage** task: does what it says on the tin and runs
-  all tests with coverage.
-
-## Make Targets
-
-- `make`: lists available targets.
-- `make test`: runs all tests.
-- `make coverage`: deprecated, use the `gocover` CLI command in the devcontainer
-  instead.
-- `make report`: deprecated, use the `goreportcard-cli` CLI command in the
-  devcontainer instead.
+`netdb` supports versions of Go that are noted by the [Go release
+policy](https://golang.org/doc/devel/release.html#policy), that is, major
+versions _N_ and _N_-1 (where _N_ is the current major version).
 
 ## Contributing
 
@@ -383,5 +369,5 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Copyright and License
 
-`lxkns` is Copyright 2020, 2025 Harald Albrecht, and licensed under the Apache
+`lxkns` is Copyright 2020, 2026 Harald Albrecht, and licensed under the Apache
 License, Version 2.0.

@@ -16,11 +16,9 @@ package enumflag
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
-
-	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/slices"
 )
 
 // EnumIdentifiers maps enumeration values to their corresponding textual
@@ -29,18 +27,18 @@ import (
 // representation (identifier). If more than one textual representation exists
 // for the same enumeration value, then the first textual representation is
 // considered to be the canonical one.
-type EnumIdentifiers[E constraints.Integer] map[E][]string
+type EnumIdentifiers[E comparable] map[E][]string
 
 // enumMapper is an optionally case insensitive map from enum values to their
 // corresponding textual representations.
-type enumMapper[E constraints.Integer] struct {
+type enumMapper[E comparable] struct {
 	m           EnumIdentifiers[E]
 	sensitivity EnumCaseSensitivity
 }
 
 // newEnumMapper returns a new enumMapper for the given mapping and case
 // sensitivity or insensitivity.
-func newEnumMapper[E constraints.Integer](mapping EnumIdentifiers[E], sensitivity EnumCaseSensitivity) enumMapper[E] {
+func newEnumMapper[E comparable](mapping EnumIdentifiers[E], sensitivity EnumCaseSensitivity) enumMapper[E] {
 	return enumMapper[E]{
 		m:           mapping,
 		sensitivity: sensitivity,
@@ -81,7 +79,8 @@ func (m enumMapper[E]) ValueOf(name string) (E, error) {
 		allids = append(allids, strings.Join(s, "/"))
 	}
 	sort.Strings(allids)
-	return 0, fmt.Errorf("must be %s", strings.Join(allids, ", "))
+	var zero E
+	return zero, fmt.Errorf("must be %s", strings.Join(allids, ", "))
 }
 
 // Mapping returns the mapping of enum values to their names.
