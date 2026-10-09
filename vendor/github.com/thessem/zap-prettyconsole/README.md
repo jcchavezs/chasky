@@ -1,5 +1,10 @@
 # :zap: :nail_care: zap-prettyconsole - Pretty Console Output For Zap
 
+[![Go Test](https://github.com/thessem/zap-prettyconsole/actions/workflows/test.yml/badge.svg)](https://github.com/thessem/zap-prettyconsole/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/thessem/zap-prettyconsole/branch/main/graph/badge.svg)](https://codecov.io/gh/thessem/zap-prettyconsole)
+[![Go Report Card](https://goreportcard.com/badge/github.com/thessem/zap-prettyconsole)](https://goreportcard.com/report/github.com/thessem/zap-prettyconsole)
+[![Go Reference](https://pkg.go.dev/badge/github.com/thessem/zap-prettyconsole.svg)](https://pkg.go.dev/github.com/thessem/zap-prettyconsole)
+
 An encoder for Uber's [zap] logger that makes complex structured log output easily readable by humans.
 It prioritises displaying information in a clean and easy-to-understand way.
 
@@ -39,8 +44,8 @@ func main() {
 ```
 
 This is intended as a tool for local development, and not for running in production.
-In production I reccomend you use zap's built in JSON mode.
-Your logs in production will be getting parsed by computers, not humans, after-all.
+In production I recommend you use zap's built in JSON mode.
+Your logs in production will be getting parsed by computers, not humans, after all.
 Take a look at the [zap advanced configuration] example to configure zap to output "human" output locally, and "machine" output in production.
 
 This package takes particular care to represent structural information with indents and newlines (slightly YAML style), hopefully making it easy to figure out what each key-value belongs to:
@@ -62,12 +67,12 @@ type UserAddress struct {
 func (u *User) MarshalLogObject(e zapcore.ObjectEncoder) error {
 	e.AddString("name", u.Name)
 	e.AddInt("age", u.Age)
-	e.OpenNamespace("address")
-	e.AddString("street", u.Address.Street)
-	e.AddString("city", u.Address.City)
 	if u.Friend != nil {
 		_ = e.AddObject("friend", u.Friend)
 	}
+	e.OpenNamespace("address")
+	e.AddString("street", u.Address.Street)
+	e.AddString("city", u.Address.City)
 	return nil
 }
 
@@ -104,8 +109,13 @@ This encoder was inspired by trying to parse multiple `github.com/pkg/errors/` e
 I am a big fan of error wrapping and error stacktraces, I am not a fan of needing to copy text out of my terminal to see what happened.
 ![errors](https://github.com/thessem/zap-prettyconsole/blob/main/internal/readme/images/Errors.png?raw=true)
 
-When objects that do not satisfy `ObjectMarshaler` are logged, zap-prettyconsole will use reflection (via the delightful [dd][dd] library) to print it instead:
+When objects that do not satisfy `ObjectMarshaler` are logged, zap-prettyconsole will use its built-in reflection dumper to print them instead. It renders structs (including unexported fields), sorted maps, timestamps and byte dumps, detects cycles, and bounds recursion depth so surprising values can never hang or crash your logging:
 ![reflection](https://github.com/thessem/zap-prettyconsole/blob/main/internal/readme/images/Reflection.png?raw=true)
+
+Fixed-size byte arrays (of any size) are automatically formatted as compact hex strings, making them ideal for displaying OpenTelemetry trace IDs, span IDs, and other binary identifiers:
+![otel_tracing](https://github.com/thessem/zap-prettyconsole/blob/main/internal/readme/images/OTelTracing.png?raw=true)
+
+Byte arrays of any size are formatted this way, covering IPv4 addresses, UUIDs, trace and span IDs, and cryptographic hashes of every length, and byte slices are rendered as hexdumps with offset comments.
 
 Strings passed to the logger will have their formatting printed and colourised, but you can opt out of this and print the raw strings.
 
@@ -135,39 +145,61 @@ You can change your separator character, newline characters, add caller/function
 ## Performance
 
 Whilst this library is described as "development mode" it is still coded to be as performant as possible, saving your CPU cycles for running lots of IDE plugins.
+Colour codes and level labels are precomputed, encoders and buffers are pooled, string escaping checks eight bytes at a time, field sorting is allocation-free, accumulated `With` context is pre-sorted and its rendering cached per level, and the built-in reflection dumper writes straight into the log buffer.
 
-The main performance overhead introduced with this encoder is because of the stable field ordering, we sort every structured log field alphabetically.
-Although the relative overhead is high, the absolute overhead is still quite small, and probably wont matter for development logging anyway!
+All the numbers below compare against zap's production JSON encoder, which does less work: no colours, no field sorting, no indentation.
+They were measured on the same machine, in the same run (`make bench`).
+
+Log a typical HTTP access line (a message and seven scalar fields):
+
+| Package | Time | Time % to zap | Objects Allocated |
+| :------ | :--: | :-----------: | :---------------: |
+| :zap: zap | 221 ns/op | +0% | 1 allocs/op
+| :zap: :nail_care: zap-prettyconsole | 288 ns/op | +30% | 1 allocs/op
+
+Log an error wrapped with `github.com/pkg/errors`, stacktraces included - this encoder's home turf:
+
+| Package | Time | Time % to zap | Objects Allocated |
+| :------ | :--: | :-----------: | :---------------: |
+| :zap: :nail_care: zap-prettyconsole | 1124 ns/op | -10% | 27 allocs/op
+| :zap: zap | 1247 ns/op | +0% | 21 allocs/op
+
+Log a plain struct with no marshaler interface, so both encoders fall back to reflection:
+
+| Package | Time | Time % to zap | Objects Allocated |
+| :------ | :--: | :-----------: | :---------------: |
+| :zap: zap | 270 ns/op | +0% | 8 allocs/op
+| :zap: :nail_care: zap-prettyconsole | 333 ns/op | +23% | 9 allocs/op
 
 Log a message and 10 fields:
 
 | Package | Time | Time % to zap | Objects Allocated |
 | :------ | :--: | :-----------: | :---------------: |
-| :zap: zap | 570 ns/op | +0% | 5 allocs/op
-| :zap: zap (sugared) | 861 ns/op | +51% | 10 allocs/op
-| :zap: :nail_care: zap-prettyconsole | 2050 ns/op | +260% | 11 allocs/op
-| :zap: :nail_care: zap-prettyconsole (sugared) | 2484 ns/op | +336% | 16 allocs/op
+| :zap: zap | 583 ns/op | +0% | 5 allocs/op
+| :zap: zap (sugared) | 894 ns/op | +53% | 10 allocs/op
+| :zap: :nail_care: zap-prettyconsole | 1307 ns/op | +124% | 5 allocs/op
+| :zap: :nail_care: zap-prettyconsole (sugared) | 1706 ns/op | +193% | 10 allocs/op
 
-Log a message with a logger that already has 10 fields of context:
+Log a message with a logger that already has 10 fields of context.
+Like zap itself, this encoder renders accumulated context once (per level, since colours differ) and reuses it on every line that adds no new fields:
 
 | Package | Time | Time % to zap | Objects Allocated |
 | :------ | :--: | :-----------: | :---------------: |
-| :zap: zap | 57 ns/op | +0% | 0 allocs/op
-| :zap: zap (sugared) | 67 ns/op | +18% | 1 allocs/op
-| :zap: :nail_care: zap-prettyconsole | 1705 ns/op | +2891% | 6 allocs/op
-| :zap: :nail_care: zap-prettyconsole (sugared) | 1712 ns/op | +2904% | 7 allocs/op
+| :zap: zap | 48 ns/op | +0% | 0 allocs/op
+| :zap: :nail_care: zap-prettyconsole | 49 ns/op | +2% | 0 allocs/op
+| :zap: zap (sugared) | 64 ns/op | +33% | 1 allocs/op
+| :zap: :nail_care: zap-prettyconsole (sugared) | 69 ns/op | +44% | 1 allocs/op
 
 Log a static string, without any context or `printf`-style templating:
 
 | Package | Time | Time % to zap | Objects Allocated |
 | :------ | :--: | :-----------: | :---------------: |
-| :zap: :nail_care: zap-prettyconsole | 39 ns/op | -11% | 0 allocs/op
-| :zap: zap | 44 ns/op | +0% | 0 allocs/op
-| :zap: zap (sugared) | 60 ns/op | +36% | 1 allocs/op
-| :zap: :nail_care: zap-prettyconsole (sugared) | 62 ns/op | +41% | 1 allocs/op
+| :zap: :nail_care: zap-prettyconsole | 34 ns/op | -24% | 0 allocs/op
+| :zap: zap | 45 ns/op | +0% | 0 allocs/op
+| :zap: zap (sugared) | 59 ns/op | +31% | 1 allocs/op
+| :zap: :nail_care: zap-prettyconsole (sugared) | 63 ns/op | +40% | 1 allocs/op
 
 Released under the [MIT License](LICENSE.txt)
 
 [zap]: https://github.com/uber-go/zap
 [zap advanced configuration]: https://pkg.go.dev/go.uber.org/zap#example-package-AdvancedConfiguration
-[dd]: https://github.com/Code-Hex/dd
