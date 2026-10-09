@@ -16,7 +16,6 @@ package enumflag
 
 import (
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/constraints"
 )
 
 // unknown is the textual representation of an unknown enum value, that is, when
@@ -26,7 +25,7 @@ const unknown = "<unknown>"
 
 // enumScalar represents a mutable, single enumeration value that can be
 // retrieved, set, and stringified.
-type enumScalar[E constraints.Integer] struct {
+type enumScalar[E comparable] struct {
 	v         *E
 	nodefault bool // opts in to accepting a zero enum value as the "none"
 }
@@ -60,7 +59,8 @@ func (s *enumScalar[E]) String(names enumMapper[E]) string {
 	if ids := names.Lookup(*s.v); len(ids) > 0 {
 		return ids[0]
 	}
-	if *s.v == 0 && s.nodefault {
+	var zero E
+	if *s.v == zero && s.nodefault {
 		return ""
 	}
 	return unknown
