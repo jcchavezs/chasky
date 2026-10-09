@@ -1,6 +1,6 @@
 module github.com/jcchavezs/chasky
 
-go 1.25.3
+go 1.27.2
 
 require (
 	github.com/briandowns/spinner v1.23.2
@@ -28,7 +28,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20250103183323-7d7fa50e5329 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/term v0.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
