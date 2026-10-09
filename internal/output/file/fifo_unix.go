@@ -3,12 +3,14 @@
 package file
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/jcchavezs/chasky/internal/log"
 	"go.uber.org/zap"
@@ -105,6 +107,44 @@ func (s *fifoSink) serve() {
 			log.Logger.Warn("Failed to write contents to named pipe", zap.Error(err))
 		}
 		_ = wf.Close()
+
+		// Wait for the reader to drain and close the pipe before offering the
+		// contents again. A write-only open succeeds while any reader still
+		// holds the pipe open, so without this the loop would reopen and write
+		// a second copy into the same reader session.
+		s.waitForReaderToClose()
+	}
+}
+
+// waitForReaderToClose blocks until no reader holds the pipe open. A
+// non-blocking write-only open returns ENXIO once the last reader has closed
+// its end; until then it succeeds, so poll until it fails. The probe never
+// writes, so it cannot add contents to the current reader session.
+func (s *fifoSink) waitForReaderToClose() {
+	for {
+		select {
+		case <-s.done:
+			return
+		default:
+		}
+
+		f, err := os.OpenFile(s.path, os.O_WRONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
+		if err != nil {
+			if errors.Is(err, syscall.ENXIO) {
+				// No reader is attached anymore; ready to serve the next one.
+				return
+			}
+			// The pipe is gone (e.g. removed by Close) or otherwise
+			// unavailable; stop waiting and let serve() unwind.
+			return
+		}
+		_ = f.Close()
+
+		select {
+		case <-s.done:
+			return
+		case <-time.After(5 * time.Millisecond):
+		}
 	}
 }
 
