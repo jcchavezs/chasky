@@ -1,10 +1,6 @@
 # al.essio.dev/pkg/shellescape v1.6.0
 ## explicit; go 1.18
 al.essio.dev/pkg/shellescape
-# github.com/Code-Hex/dd v1.1.0
-## explicit; go 1.18
-github.com/Code-Hex/dd
-github.com/Code-Hex/dd/internal/sort
 # github.com/briandowns/spinner v1.23.2
 ## explicit; go 1.17
 github.com/briandowns/spinner
@@ -60,8 +56,8 @@ github.com/stretchr/testify/require
 # github.com/thediveo/enumflag/v2 v2.0.7
 ## explicit; go 1.22.0
 github.com/thediveo/enumflag/v2
-# github.com/thessem/zap-prettyconsole v0.5.2
-## explicit; go 1.18
+# github.com/thessem/zap-prettyconsole v0.7.0
+## explicit; go 1.23
 github.com/thessem/zap-prettyconsole
 # github.com/zalando/go-keyring v0.2.6
 ## explicit; go 1.18
