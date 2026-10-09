@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"slices"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -39,6 +38,32 @@ func init() {
 	RootCmd.AddCommand(currentCmd)
 }
 
+// resolveCommand splits the positional args into the environment name and an
+// optional custom command to run inside that environment. Everything after the
+// `--` separator is the custom command; dashPos is the number of positional
+// args that appeared before `--` (or -1 when no `--` was given, matching
+// cobra's Command.ArgsLenAtDash). When no custom command is given, the provided
+// shell is used instead.
+func resolveCommand(args []string, dashPos int, shell string) (envName, command string, commandArg []string, isCustomCommand bool, err error) {
+	command = shell
+
+	envArgs := args
+	if dashPos != -1 {
+		envArgs = args[:dashPos]
+		if cmdArgs := args[dashPos:]; len(cmdArgs) > 0 {
+			command = cmdArgs[0]
+			commandArg = cmdArgs[1:]
+			isCustomCommand = true
+		}
+	}
+
+	if len(envArgs) != 1 {
+		return "", "", nil, false, errors.New("unknown command")
+	}
+
+	return envArgs[0], command, commandArg, isCustomCommand, nil
+}
+
 var RootCmd = &cobra.Command{
 	Use:   "chasky [command|environ]",
 	Short: "Chasky is a tool to generate shell environs for your apps",
@@ -57,33 +82,19 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 			return errors.New("cannot run chasky inside a chasky environment")
 		}
 
-		var (
-			command         = os.Getenv("SHELL")
-			commandArg      []string
-			isCustomCommand bool
-		)
-
-		if len(args) > 1 {
-			if !slices.Contains(os.Args, "--") { // cobra args does not pick up -- separator
-				return errors.New("unknown command")
-			}
-
-			if len(args) > 2 {
-				command = args[1]
-				commandArg = args[2:]
-				isCustomCommand = true
-			}
+		// ArgsLenAtDash reports how many positional args appeared before the
+		// `--` separator (or -1 when no `--` was given).
+		envName, command, commandArg, isCustomCommand, err := resolveCommand(args, cmd.ArgsLenAtDash(), os.Getenv("SHELL"))
+		if err != nil {
+			return err
 		}
 
 		ctx := cmd.Context()
-		var envName string
 
 		conf, err := config.Parse(ctx)
 		if err != nil {
 			return err
 		}
-
-		envName = args[0]
 
 		var afterRender = func() {}
 		if !isCustomCommand {
