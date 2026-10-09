@@ -34,6 +34,7 @@ install:
 generate:
 	@go generate ./...
 
+.PHONY: modules
 modules: ## Tidy and vendor Go modules
 	@go mod tidy
 	@go mod vendor
