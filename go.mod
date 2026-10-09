@@ -10,7 +10,7 @@ require (
 	github.com/thediveo/enumflag/v2 v2.0.7
 	github.com/thessem/zap-prettyconsole v0.5.2
 	github.com/zalando/go-keyring v0.2.6
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.28.0
 )
 
 require (
