@@ -4,13 +4,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/Code-Hex/dd"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
 )
@@ -30,12 +29,26 @@ const (
 
 func DefaultTimeEncoder(format string) func(time.Time, zapcore.PrimitiveArrayEncoder) {
 	return func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		// Fast path for this package's own encoder: write straight into
+		// the entry buffer instead of formatting through an intermediate.
+		if raw, ok := enc.(rawStringAppender); ok {
+			raw.addSeparator()
+			raw.buf.AppendString(ansiDarkGray)
+			raw.buf.AppendTime(t, format)
+			raw.buf.AppendString(ansiReset)
+			raw.inList = true
+			return
+		}
 		buf := _bufferPoolGet()
-		colorize(buf, t.Format(format), strconv.Itoa(colorDarkGray))
+		buf.AppendString(ansiDarkGray)
+		buf.AppendTime(t, format)
+		buf.AppendString(ansiReset)
 		enc.AppendString(buf.String())
 		buf.Free()
 	}
 }
+
+const ansiDarkGray = "\x1b[90m"
 
 func defaultDurationEncoder(dur time.Duration, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(dur.String())
@@ -55,43 +68,42 @@ var defaultColours = [10][]string{
 	zapcore.PanicLevel + defaultColourOffset:     {strconv.Itoa(colorRed), strconv.Itoa(colorBold)},
 }
 
-func defaultLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	var str string
-
-	switch l {
-	// DIY trace level
-	case zapcore.DebugLevel - 1:
-		str = "TRC"
-	case zapcore.DebugLevel:
-		str = "DBG"
-	case zapcore.InfoLevel:
-		str = "INF"
-	case zapcore.WarnLevel:
-		str = "WRN"
-	case zapcore.ErrorLevel:
-		str = "ERR"
-	case zapcore.FatalLevel:
-		str = "FTL"
-	case zapcore.DPanicLevel:
-		str = "DPNC"
-	case zapcore.PanicLevel:
-		str = "PNC"
-	default:
-		l = zapcore.PanicLevel
-		str = "???"
+// defaultLevelLabels holds the fully coloured label for each known level,
+// so encoding a level is a single precomputed append.
+var defaultLevelLabels = func() (labels [len(defaultColours)]string) {
+	names := map[zapcore.Level]string{
+		zapcore.DebugLevel - 1: "TRC", // DIY trace level
+		zapcore.DebugLevel:     "DBG",
+		zapcore.InfoLevel:      "INF",
+		zapcore.WarnLevel:      "WRN",
+		zapcore.ErrorLevel:     "ERR",
+		zapcore.FatalLevel:     "FTL",
+		zapcore.DPanicLevel:    "DPNC",
+		zapcore.PanicLevel:     "PNC",
 	}
+	for l, name := range names {
+		labels[l+defaultColourOffset] = levelColourPrefixes[l+defaultColourOffset] + name + ansiReset
+	}
+	return labels
+}()
 
-	buf := _bufferPoolGet()
-	colorize(buf, str, defaultColours[l+defaultColourOffset]...)
-	enc.AppendString(buf.String())
-	buf.Free()
+var unknownLevelLabel = levelColourPrefixes[zapcore.PanicLevel+defaultColourOffset] + "???" + ansiReset
+
+func defaultLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	if idx := int(l) + defaultColourOffset; idx >= 0 && idx < len(defaultLevelLabels) && defaultLevelLabels[idx] != "" {
+		enc.AppendString(defaultLevelLabels[idx])
+		return
+	}
+	enc.AppendString(unknownLevelLabel)
 }
+
+var cachedCwd = sync.OnceValues(os.Getwd)
 
 func defaultCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 	callerFullPath := caller.FullPath()
 
 	var str string
-	if cwd, err := os.Getwd(); err == nil {
+	if cwd, err := cachedCwd(); err == nil {
 		if rel, err := filepath.Rel(cwd, callerFullPath); err == nil {
 			str = rel
 		}
@@ -106,56 +118,40 @@ func defaultCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArray
 		}
 	}
 
-	buf := _bufferPoolGet()
-	colorize(buf, str, strconv.Itoa(colorBold))
-	enc.AppendString(buf.String())
-	buf.Free()
+	appendBold(enc, str)
 }
 
 func defaultNameEncoder(name string, enc zapcore.PrimitiveArrayEncoder) {
+	appendBold(enc, name)
+}
+
+// appendBold writes s in bold, straight into the entry buffer when the
+// consumer is this package's own encoder.
+func appendBold(enc zapcore.PrimitiveArrayEncoder, s string) {
+	if raw, ok := enc.(rawStringAppender); ok {
+		raw.addSeparator()
+		raw.buf.AppendString(ansiBold)
+		raw.buf.AppendString(s)
+		raw.buf.AppendString(ansiReset)
+		raw.inList = true
+		return
+	}
 	buf := _bufferPoolGet()
-	colorize(buf, name, strconv.Itoa(colorBold))
+	colorize(buf, s, strconv.Itoa(colorBold))
 	enc.AppendString(buf.String())
 	buf.Free()
 }
 
-var reflectedListBreakSize = map[interface{}]int{
-	new(byte): 16, reflect.TypeOf(*new(byte)): 16,
-	new(bool): 8, *new(bool): 8,
-	new(complex64): 8, *new(complex64): 8,
-	new(time.Duration): 8, *new(time.Duration): 8,
-	new(float32): 8, *new(float32): 8,
-	new(float64): 8, *new(float64): 8,
-	new(int): 8, *new(int): 8,
-	new(int16): 8, *new(int16): 8,
-	new(int32): 8, *new(int32): 8,
-	new(int64): 8, *new(int64): 8,
-	new(int16): 16, *new(int16): 16,
-	new(string): 8, *new(string): 8,
-	new(time.Time): 8, *new(time.Time): 8,
-	new(uint): 8, *new(uint): 8,
-	new(uint16): 8, *new(uint16): 8,
-	new(uint32): 8, *new(uint32): 8,
-	new(uint64): 8, *new(uint64): 8,
-	new(uint16): 16, *new(uint16): 16,
-}
-
 func defaultReflectedEncoder(w io.Writer) zapcore.ReflectedEncoder {
-	opts := make([]dd.OptionFunc, 0, len(reflectedListBreakSize))
-	for key, val := range reflectedListBreakSize {
-		opts = append(opts, dd.WithListBreakLineSize(key, val))
-	}
-	return ddEncoder{w: w, opts: opts}
+	return dumpEncoder{w: w}
 }
 
-type ddEncoder struct {
-	w    io.Writer
-	opts []dd.OptionFunc
+type dumpEncoder struct {
+	w io.Writer
 }
 
-func (d ddEncoder) Encode(i interface{}) error {
-	_, err := d.w.Write([]byte(dd.Dump(i, d.opts...)))
-	return err
+func (d dumpEncoder) Encode(i interface{}) error {
+	return dumpValue(d.w, i)
 }
 
 // colorize returns the string s wrapped in ANSI code c

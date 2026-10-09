@@ -1,14 +1,9 @@
 package prettyconsole
 
 import (
-	"bytes"
-	"io"
 	"os"
-	"sort"
-	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
@@ -31,6 +26,11 @@ func NewConfig() zap.Config {
 }
 
 func NewEncoder(cfg zapcore.EncoderConfig) zapcore.Encoder {
+	// Like zapcore's encoders, treat an unset line ending as the default:
+	// it is also used internally to lay out namespaces and indents.
+	if cfg.LineEnding == "" {
+		cfg.LineEnding = zapcore.DefaultLineEnding
+	}
 	return &recordingEncoder{e: prettyConsoleEncoder{
 		buf:             nil,
 		cfg:             &cfg,
@@ -41,6 +41,7 @@ func NewEncoder(cfg zapcore.EncoderConfig) zapcore.Encoder {
 		_listSepComma: "," + cfg.ConsoleSeparator,
 		_listSepSpace: cfg.ConsoleSeparator,
 		listSep:       cfg.ConsoleSeparator,
+		listSepIndent: -1,
 	}}
 }
 
@@ -87,7 +88,10 @@ type prettyConsoleEncoder struct {
 	namespaceIndent int
 	inList          bool
 	listSep         string
-	keyPrefix       string
+	// listSepIndent >= 0 means the separator is a line break followed by
+	// that many spaces (built without allocating); -1 means use listSep.
+	listSepIndent int
+	keyPrefix     string
 
 	_listSepComma string
 	_listSepSpace string
@@ -110,6 +114,7 @@ func (e prettyConsoleEncoder) clone() *prettyConsoleEncoder {
 	clone.namespaceIndent = e.namespaceIndent
 	clone.inList = e.inList
 	clone.listSep = e.listSep
+	clone.listSepIndent = e.listSepIndent
 	clone.keyPrefix = e.keyPrefix
 
 	clone._listSepComma = e._listSepComma
@@ -119,12 +124,28 @@ func (e prettyConsoleEncoder) clone() *prettyConsoleEncoder {
 }
 
 func (e prettyConsoleEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.Field) (*buffer.Buffer, error) {
-	e.buf = getBuffer()
-	e.level = entry.Level
+	// Work on a pooled encoder: the preamble callbacks take the encoder
+	// through an interface, which would force this stack copy to escape
+	// to the heap on every entry.
+	enc := getPrettyConsoleEncoder()
+	*enc = e
+	enc.buf = getBuffer()
+	enc.level = entry.Level
+	enc.encodePreamble(entry)
+	sortFieldSegments(fields)
+	enc.encodeFields(fields)
+	enc.encodeFinish(entry)
+	buf := enc.buf
+	enc.buf = nil
+	putPrettyConsoleEncoder(enc)
+	return buf, nil
+}
 
-	raw := rawStringAppender{&e}
+// encodePreamble writes the time/level/name/caller preamble and message,
+// leaving the encoder ready for fields (inList set, default separator).
+func (e *prettyConsoleEncoder) encodePreamble(entry zapcore.Entry) {
+	raw := rawStringAppender{e}
 
-	// Add preamble
 	if e.cfg.TimeKey != "" && e.cfg.EncodeTime != nil {
 		e.cfg.EncodeTime(entry.Time, raw)
 	}
@@ -143,72 +164,82 @@ func (e prettyConsoleEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.
 		}
 	}
 	e.addSeparator()
-	// Kinda going about making it bold the long way here I imagine
-	e.buf.AppendString("\x1b[")
-	e.buf.AppendString(strconv.Itoa(colorBold))
-	e.buf.AppendString("m")
+	e.buf.AppendString(ansiBold)
 	e.colorizeAtLevel(">")
-	e.buf.AppendString("\x1b[0m")
+	e.buf.AppendString(ansiReset)
 	e.inList = true
 
-	// Add the message itself.
 	if entry.Message != "" && e.cfg.MessageKey != "" {
 		e.addSeparator()
-		e.appendSafeByte([]byte(entry.Message))
+		e.addSafeString(entry.Message)
 		e.inList = true
 	}
+}
 
-	// We are sorting all field keys alphabetically, except pushing multi-line
-	// stuff (array, reflect, object, error in that order) to the back.
-	//
-	// Additionally we are only sorting within namespace boundaries, as we don't
-	// want to re-order namespaces and destroy that structural information.
+// fieldLess orders fields alphabetically by key, except pushing multi-line
+// types (array, reflect, object, error in that order) to the back.
+func fieldLess(a, b *zapcore.Field) bool {
+	if a.Type == b.Type {
+		return a.Key < b.Key
+	}
+	switch a.Type {
+	case zapcore.ArrayMarshalerType:
+		return b.Type == zapcore.ReflectType || b.Type == zapcore.ObjectMarshalerType || b.Type == zapcore.ErrorType
+	case zapcore.ReflectType:
+		return b.Type == zapcore.ObjectMarshalerType || b.Type == zapcore.ErrorType
+	case zapcore.ObjectMarshalerType:
+		return b.Type == zapcore.ErrorType
+	case zapcore.ErrorType:
+		return false
+	}
+	switch b.Type {
+	case zapcore.ArrayMarshalerType, zapcore.ReflectType, zapcore.ObjectMarshalerType, zapcore.ErrorType:
+		return true
+	default:
+		return a.Key < b.Key
+	}
+}
+
+// sortFieldSegments sorts fields with fieldLess within namespace
+// boundaries: namespaces are never re-ordered, as that would destroy
+// structural information. Insertion sort is used because field counts are
+// small, it allocates nothing, and it is O(n) on the already-sorted
+// prefixes the recording encoder prepares.
+func sortFieldSegments(fields []zapcore.Field) {
 	prev := 0
-	sortFunc := func(ii, jj int) bool {
-		ii += prev
-		jj += prev
-		if fields[ii].Type == fields[jj].Type {
-			return fields[ii].Key < fields[jj].Key
-		}
-		switch fields[ii].Type {
-		case zapcore.ArrayMarshalerType:
-			return fields[jj].Type == zapcore.ReflectType || fields[jj].Type == zapcore.ObjectMarshalerType || fields[jj].Type == zapcore.ErrorType
-		case zapcore.ReflectType:
-			return fields[jj].Type == zapcore.ObjectMarshalerType || fields[jj].Type == zapcore.ErrorType
-		case zapcore.ObjectMarshalerType:
-			return fields[jj].Type == zapcore.ErrorType
-		case zapcore.ErrorType:
-			return false
-		}
-		switch fields[jj].Type {
-		case zapcore.ArrayMarshalerType, zapcore.ReflectType, zapcore.ObjectMarshalerType, zapcore.ErrorType:
-			return true
-		default:
-			return fields[ii].Key < fields[jj].Key
-		}
-	}
-	for idx, field := range fields {
-		if field.Type == zapcore.NamespaceType {
-			sort.Slice(fields[prev:idx], sortFunc)
+	for idx := range fields {
+		if fields[idx].Type == zapcore.NamespaceType {
+			insertionSortFields(fields[prev:idx])
 			prev = idx + 1
-		} else if idx == len(fields)-1 {
-			sort.Slice(fields[prev:idx+1], sortFunc)
 		}
 	}
+	insertionSortFields(fields[prev:])
+}
 
-	// Write the fields
-	for _, f := range fields {
-		if f.Type == zapcore.ErrorType {
-			if err := e.encodeError(f.Key, f.Interface.(error)); err != nil {
-				_ = e.encodeError(f.Key+"_PANIC_DISPLAYING_ERROR", err)
+func insertionSortFields(fs []zapcore.Field) {
+	for i := 1; i < len(fs); i++ {
+		for j := i; j > 0 && fieldLess(&fs[j], &fs[j-1]); j-- {
+			fs[j], fs[j-1] = fs[j-1], fs[j]
+		}
+	}
+}
+
+// encodeFields writes already-sorted fields.
+func (e *prettyConsoleEncoder) encodeFields(fields []zapcore.Field) {
+	for i := range fields {
+		if fields[i].Type == zapcore.ErrorType {
+			if err := e.encodeError(fields[i].Key, fields[i].Interface.(error)); err != nil {
+				_ = e.encodeError(fields[i].Key+"_PANIC_DISPLAYING_ERROR", err)
 			}
 			e.inList = false
 		} else {
-			f.AddTo(&e)
+			fields[i].AddTo(e)
 		}
 	}
+}
 
-	// Write the stacktrace
+// encodeFinish writes the stacktrace and line ending.
+func (e *prettyConsoleEncoder) encodeFinish(entry zapcore.Entry) {
 	if entry.Stack != "" && e.cfg.StacktraceKey != "" {
 		e.namespaceIndent = 0
 		e.OpenNamespace("")
@@ -216,17 +247,49 @@ func (e prettyConsoleEncoder) EncodeEntry(entry zapcore.Entry, fields []zapcore.
 		e.keyPrefix = ""
 		e.addIndentedString("stacktrace", strings.TrimPrefix(entry.Stack, "\n"))
 	}
-
-	// We're done :)
-	e.buf.AppendString(e.cfg.LineEnding)
-
-	return e.buf, nil
+	if !e.cfg.SkipLineEnding {
+		e.buf.AppendString(e.cfg.LineEnding)
+	}
 }
 
 func (e *prettyConsoleEncoder) addSeparator() {
-	if e.inList {
-		e.colorizeAtLevel(e.listSep)
+	if !e.inList {
 		return
+	}
+	if e.listSepIndent >= 0 {
+		// Line-break separator: coloured line ending plus indentation,
+		// written without building an intermediate string.
+		e.buf.AppendString(levelColourPrefix(e.level))
+		e.buf.AppendString(e.cfg.LineEnding)
+		appendSpaces(e.buf, e.listSepIndent)
+		e.buf.AppendString(ansiReset)
+		return
+	}
+	e.colorizeAtLevel(e.listSep)
+}
+
+// setListSep selects a plain-string separator for the next element.
+func (e *prettyConsoleEncoder) setListSep(s string) {
+	e.listSep = s
+	e.listSepIndent = -1
+}
+
+// setIndentSep makes the next separator a line break plus the current
+// namespace indentation.
+func (e *prettyConsoleEncoder) setIndentSep() {
+	e.listSepIndent = e.namespaceIndent
+}
+
+const manySpaces = "                                                                " // 64 spaces
+
+// appendSpaces appends n spaces in large chunks.
+func appendSpaces(buf *buffer.Buffer, n int) {
+	for n > len(manySpaces) {
+		buf.AppendString(manySpaces)
+		n -= len(manySpaces)
+	}
+	if n > 0 {
+		buf.AppendString(manySpaces[:n])
 	}
 }
 
@@ -234,83 +297,44 @@ func (e *prettyConsoleEncoder) addKey(key string) {
 	e.colorizeAtLevel(e.keyPrefix + key + "=")
 }
 
-// addSafeString JSON-escapes a string and appends it to the internal buffer.
-func (e *prettyConsoleEncoder) addSafeString(s string) {
-	for i := 0; i < len(s); {
-		if e.tryAddRune(s[i]) {
-			i++
-			continue
-		}
-		r, size := utf8.DecodeRuneInString(s[i:])
-		if e.tryAddRuneError(r, size) {
-			i++
-			continue
-		}
-		e.buf.AppendString(s[i : i+size])
-		i += size
-	}
-}
-
-// appendSafeByte is no-alloc equivalent of addSafeString(string(s)) for s
-// []byte.
-func (e *prettyConsoleEncoder) appendSafeByte(s []byte) {
-	for i := 0; i < len(s); {
-		if e.tryAddRune(s[i]) {
-			i++
-			continue
-		}
-		r, size := utf8.DecodeRune(s[i:])
-		if e.tryAddRuneError(r, size) {
-			i++
-			continue
-		}
-		_, _ = e.buf.Write(s[i : i+size]) // Explicitly ignore errors
-		i += size
-	}
-}
-
-// tryAddRune appends b if it is valid UTF-8 character represented in a
-// single byte.
-func (e *prettyConsoleEncoder) tryAddRune(b byte) bool {
-	const _hex = "0123456789abcdef"
-
-	if b >= utf8.RuneSelf {
-		return false
-	}
-	if 0x20 <= b && b != '\\' && b != '"' {
-		e.buf.AppendByte(b)
-		return true
-	}
-	switch b {
-	case '\\', '"':
-		e.colorizeAtLevel("\\" + string(b))
-	case '\n':
-		e.colorizeAtLevel("\\n")
-	case '\r':
-		e.colorizeAtLevel("\\r")
-	case '\t':
-		e.colorizeAtLevel("\\t")
-	default:
-		// Encode bytes < 0x20, except for the escape sequences above.
-		e.colorizeAtLevel(`\u00`)
-		e.colorizeAtLevel(string(_hex[b>>4]))
-		e.colorizeAtLevel(string(_hex[b&0xF]))
-	}
-	return true
-}
-
-func (e *prettyConsoleEncoder) tryAddRuneError(r rune, size int) bool {
-	if r == utf8.RuneError && size == 1 {
-		e.buf.AppendString(`\ufffd`)
-		return true
-	}
-	return false
-}
-
 // colorize returns the string s wrapped in ANSI code c, coloured properly for
 // the logging level we're at.
 func (e *prettyConsoleEncoder) colorizeAtLevel(s string) {
-	colorize(e.buf, s, defaultColours[e.level+defaultColourOffset]...)
+	e.buf.AppendString(levelColourPrefix(e.level))
+	e.buf.AppendString(s)
+	e.buf.AppendString(ansiReset)
+}
+
+const (
+	ansiReset = "\x1b[0m"
+	ansiBold  = "\x1b[1m"
+)
+
+// levelColourPrefixes holds the full ANSI prefix for each level, so the
+// hot path appends one precomputed string instead of assembling codes.
+var levelColourPrefixes = func() (p [len(defaultColours)]string) {
+	for i, cols := range defaultColours {
+		for _, c := range cols {
+			p[i] += "\x1b[" + c + "m"
+		}
+	}
+	return p
+}()
+
+// colourIdx maps a level to its colour-table index, treating levels
+// outside the known range like defaultLevelEncoder treats them: as panics.
+// zapcore.Level is an int8, so custom levels must not crash the encoder.
+func colourIdx(l zapcore.Level) int {
+	idx := int(l) + defaultColourOffset
+	if idx < 0 || idx >= len(defaultColours) || defaultColours[idx] == nil {
+		idx = int(zapcore.PanicLevel) + defaultColourOffset
+	}
+	return idx
+}
+
+// levelColourPrefix returns the precomputed ANSI prefix for a level.
+func levelColourPrefix(l zapcore.Level) string {
+	return levelColourPrefixes[colourIdx(l)]
 }
 
 // rawStringAppender will append strings without escaping them,
@@ -320,46 +344,4 @@ func (e rawStringAppender) AppendString(s string) {
 	e.addSeparator()
 	e.buf.AppendString(s)
 	e.inList = true
-}
-
-type indentingWriter struct {
-	buf        io.Writer
-	indent     int
-	lineEnding []byte
-}
-
-func (i indentingWriter) Write(p []byte) (n int, err error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	idx := bytes.IndexByte(p, '\n')
-	if idx == -1 {
-		return i.buf.Write(p)
-	}
-	written, _ := i.buf.Write(p[0:idx])
-	read := written
-	n, _ = i.buf.Write(i.lineEnding)
-	written += n
-	read += 1
-	for read <= len(p) {
-		for ii := 0; ii < i.indent; ii++ {
-			n, _ := i.buf.Write([]byte(" "))
-			written += n
-		}
-		if read == len(p) {
-			return written, nil
-		}
-		idx = bytes.IndexByte(p[read:], '\n')
-		if idx == -1 {
-			n, _ := i.buf.Write(p[read:])
-			return written + n, nil
-		}
-		n, _ = i.buf.Write(p[read : read+idx])
-		written += n
-		read += n
-		n, _ = i.buf.Write(i.lineEnding)
-		written += n
-		read += 1
-	}
-	return written, nil
 }

@@ -1,0 +1,5 @@
+# Test artifacts
+coverage.out
+cpu.pprof
+mem.pprof
+*.test

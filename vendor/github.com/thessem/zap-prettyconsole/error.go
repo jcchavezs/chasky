@@ -3,14 +3,30 @@ package prettyconsole
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 
+	// Deliberate dependency: github.com/pkg/errors is archived, but consumers
+	// still commonly attach stacktraces with it, and detecting those requires
+	// its named StackTrace type.
 	"github.com/pkg/errors"
 )
 
-var reErrorJoins = regexp.MustCompile(`[\s,:;\\n]+$`)
+// trimErrorJoins removes trailing separator characters like ':' or ','
+// surrounded by whitespace. It is the allocation-free equivalent of the
+// historical regex [\s,:;\\n]+$ - including its quirk of also trimming
+// literal 'n' and backslash characters.
+func trimErrorJoins(s string) string {
+	for len(s) > 0 {
+		switch s[len(s)-1] {
+		case ' ', '\t', '\n', '\f', '\r', ',', ':', ';', '\\', 'n':
+			s = s[:len(s)-1]
+		default:
+			return s
+		}
+	}
+	return s
+}
 
 // Encodes the given error into fields of an object. A field with the given
 // name is added for the error message.
@@ -40,7 +56,7 @@ func (e *prettyConsoleEncoder) encodeError(key string, err error) (retErr error)
 			// If it's a nil pointer, just say "<nil>". The likeliest causes are a
 			// error that fails to guard against nil or a nil pointer for a
 			// value receiver, and in either case, "<nil>" is a nice result.
-			if v := reflect.ValueOf(err); v.Kind() != reflect.Ptr || v.IsNil() {
+			if v := reflect.ValueOf(err); v.Kind() != reflect.Pointer || v.IsNil() {
 				retErr = fmt.Errorf("PANIC=%v", rerr)
 				putPrettyConsoleEncoder(enc)
 				return
@@ -51,11 +67,13 @@ func (e *prettyConsoleEncoder) encodeError(key string, err error) (retErr error)
 		putPrettyConsoleEncoder(enc)
 
 		e.inList = true
-		e.listSep = e.cfg.LineEnding + strings.Repeat(" ", e.namespaceIndent)
+		e.setIndentSep()
 	}()
 
 	var causes []error
-	switch et := err.(type) {
+	// This deliberately inspects only the outermost error: each recursion
+	// level peels one layer, so errors.As would wrongly skip ahead here.
+	switch et := err.(type) { //nolint:errorlint
 	case interface{ Errors() []error }:
 		causes = et.Errors()
 	case interface{ Unwrap() []error }:
@@ -71,9 +89,9 @@ func (e *prettyConsoleEncoder) encodeError(key string, err error) (retErr error)
 		if cause != nil {
 			cbasic := cause.Error()
 			basic, _, _ = strings.Cut(basic, cbasic)
-			// TrimSuffix with seperator characters like : or , surrounded by
+			// TrimSuffix with separator characters like : or , surrounded by
 			// any number of spaces
-			basic = reErrorJoins.ReplaceAllString(strings.TrimSpace(basic), "")
+			basic = trimErrorJoins(strings.TrimSpace(basic))
 		}
 	}
 	if basic != "" {
@@ -106,11 +124,11 @@ func (e *prettyConsoleEncoder) encodeError(key string, err error) (retErr error)
 	if st, ok := err.(interface{ StackTrace() errors.StackTrace }); ok {
 		enc.OpenNamespace("")
 		enc.namespaceIndent += len("stacktrace=")
-		enc.addIndentedString("stacktrace", strings.TrimPrefix(fmt.Sprintf("%+v", st.StackTrace()), "\n"))
+		enc.addIndentedFormat("stacktrace", st.StackTrace())
 	} else if ef, ok := err.(fmt.Formatter); ok && !skipDetail {
 		enc.OpenNamespace("")
 		enc.namespaceIndent += len("detail=")
-		enc.addIndentedString("detail", strings.TrimPrefix(fmt.Sprintf("%+v", ef), "\n"))
+		enc.addIndentedFormat("detail", ef)
 	}
 
 	// Normal clean up is actually in the defer
