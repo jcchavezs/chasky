@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"slices"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -63,27 +62,33 @@ $ chasky my_app --log-level=debug -- echo "I am ${MY_USER_ENV_VAR}"`,
 			isCustomCommand bool
 		)
 
-		if len(args) > 1 {
-			if !slices.Contains(os.Args, "--") { // cobra args does not pick up -- separator
-				return errors.New("unknown command")
-			}
+		// Everything after the `--` separator is treated as a custom command to
+		// run inside the environment. ArgsLenAtDash reports how many positional
+		// args appeared before `--` (or -1 when no `--` was given).
+		dashPos := cmd.ArgsLenAtDash()
 
-			if len(args) > 2 {
-				command = args[1]
-				commandArg = args[2:]
+		envArgs := args
+		if dashPos != -1 {
+			envArgs = args[:dashPos]
+			if cmdArgs := args[dashPos:]; len(cmdArgs) > 0 {
+				command = cmdArgs[0]
+				commandArg = cmdArgs[1:]
 				isCustomCommand = true
 			}
 		}
 
+		if len(envArgs) != 1 {
+			return errors.New("unknown command")
+		}
+
 		ctx := cmd.Context()
-		var envName string
 
 		conf, err := config.Parse(ctx)
 		if err != nil {
 			return err
 		}
 
-		envName = args[0]
+		envName := envArgs[0]
 
 		var afterRender = func() {}
 		if !isCustomCommand {
