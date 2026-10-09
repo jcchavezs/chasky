@@ -3,14 +3,12 @@
 package file
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/jcchavezs/chasky/internal/log"
 	"go.uber.org/zap"
@@ -79,8 +77,14 @@ func (s *fifoSink) snapshot() []byte {
 
 // serve repeatedly offers the current contents to whoever opens the pipe for
 // reading. Opening the pipe for writing blocks until a reader is present, so
-// each iteration parks until the reader process reads the file, writes the
-// contents and starts over to serve the next read.
+// each iteration parks until a reader process opens the file.
+//
+// Once a reader attaches, the pipe is replaced with a fresh FIFO (same path,
+// new inode) before the contents are written. The reader stays attached to the
+// old, now-unlinked inode through its open descriptor, so the next blocking
+// open parks on the new inode until a genuinely new reader arrives. Without
+// this swap the loop would reopen the same inode while the reader it just
+// served was still attached and deliver a second copy into that same read.
 func (s *fifoSink) serve() {
 	for {
 		select {
@@ -95,57 +99,42 @@ func (s *fifoSink) serve() {
 			return
 		}
 
-		select {
-		case <-s.done:
-			// Woken up by Close rather than by a genuine reader.
+		// Replace the pipe before serving so the next iteration waits for a new
+		// reader instead of re-serving this one. Also catches Close waking us up
+		// rather than a genuine reader.
+		if !s.recreate() {
 			_ = wf.Close()
 			return
-		default:
 		}
 
 		if _, err := wf.Write(s.snapshot()); err != nil {
 			log.Logger.Warn("Failed to write contents to named pipe", zap.Error(err))
 		}
 		_ = wf.Close()
-
-		// Wait for the reader to drain and close the pipe before offering the
-		// contents again. A write-only open succeeds while any reader still
-		// holds the pipe open, so without this the loop would reopen and write
-		// a second copy into the same reader session.
-		s.waitForReaderToClose()
 	}
 }
 
-// waitForReaderToClose blocks until no reader holds the pipe open. A
-// non-blocking write-only open returns ENXIO once the last reader has closed
-// its end; until then it succeeds, so poll until it fails. The probe never
-// writes, so it cannot add contents to the current reader session.
-func (s *fifoSink) waitForReaderToClose() {
-	for {
-		select {
-		case <-s.done:
-			return
-		default:
-		}
+// recreate unlinks the current FIFO and creates a fresh one at the same path,
+// giving the next blocking open a new inode to park on. It reports false if the
+// sink is closing or the pipe can no longer be created, signalling serve to
+// unwind. The caller must already hold an open writer to the previous inode so
+// the reader attached there is unaffected by the swap.
+func (s *fifoSink) recreate() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-		f, err := os.OpenFile(s.path, os.O_WRONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
-		if err != nil {
-			if errors.Is(err, syscall.ENXIO) {
-				// No reader is attached anymore; ready to serve the next one.
-				return
-			}
-			// The pipe is gone (e.g. removed by Close) or otherwise
-			// unavailable; stop waiting and let serve() unwind.
-			return
-		}
-		_ = f.Close()
-
-		select {
-		case <-s.done:
-			return
-		case <-time.After(5 * time.Millisecond):
-		}
+	select {
+	case <-s.done:
+		return false
+	default:
 	}
+
+	_ = os.Remove(s.path)
+	if err := syscall.Mkfifo(s.path, 0o600); err != nil {
+		log.Logger.Warn("Failed to recreate named pipe", zap.Error(err))
+		return false
+	}
+	return true
 }
 
 func (s *fifoSink) Close() error {
@@ -156,10 +145,13 @@ func (s *fifoSink) Close() error {
 	// A write-only open of a FIFO blocks until a reader shows up, so the serving
 	// goroutine may be parked inside OpenFile. Open the read end once
 	// (non-blocking) to release it; it then observes `done` and returns instead
-	// of serving the contents again.
+	// of serving the contents again. Hold the lock so this does not race with
+	// recreate swapping the inode out from under us.
+	s.mu.Lock()
 	if rf, err := os.OpenFile(s.path, os.O_RDONLY|syscall.O_NONBLOCK, os.ModeNamedPipe); err == nil {
 		_ = rf.Close()
 	}
+	s.mu.Unlock()
 
 	log.Logger.Debug("Removing named pipe", zap.String("path", s.path))
 	return os.RemoveAll(s.dir)
