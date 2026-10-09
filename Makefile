@@ -4,7 +4,7 @@ test:
 
 .PHONY: install-tools
 install-tools: ## Install tools
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 	@go install github.com/goreleaser/goreleaser/v2@latest
 
@@ -33,3 +33,8 @@ install:
 
 generate:
 	@go generate ./...
+
+.PHONY: modules
+modules: ## Tidy and vendor Go modules
+	@go mod tidy
+	@go mod vendor
