@@ -29,6 +29,11 @@ jobs:
           make generate
           git diff --exit-code
 
+      - name: Run modules
+        run: |
+          make modules
+          git diff --exit-code
+
       - name: Run lint
         run: make lint
 
