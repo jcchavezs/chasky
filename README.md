@@ -6,8 +6,10 @@ Chasky is a secrets dealer. Declare the secrets you need on every application as
 
 ### Using the install script (recommended)
 
+Requires the [GitHub CLI](https://cli.github.com). Installs the latest release for your OS/arch into `/usr/local/bin` (or `~/.local/bin`); override with `INSTALL_DIR` or `VERSION`.
+
 ```console
-curl -sSL https://raw.githubusercontent.com/jcchavezs/chasky/main/install.sh | bash
+gh release download --repo jcchavezs/chasky --pattern 'install.sh' -O - | sh
 ```
 
 ### Using Go

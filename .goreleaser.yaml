@@ -49,6 +49,8 @@ changelog:
       - "^test:"
 
 release:
+  extra_files:
+    - glob: ./install.sh
   footer: >-
 
     ---
