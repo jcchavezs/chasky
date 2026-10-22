@@ -8,6 +8,15 @@ Chasky is a secrets dealer. Declare the secrets you need on every application as
 go install github.com/jcchavezs/chasky/cmd/chasky@latest
 ```
 
+## Claude Code plugin
+
+This repository is also a Claude Code plugin that ships the `chasky-env` skill (requires the `chasky` binary installed):
+
+```console
+/plugin marketplace add jcchavezs/chasky
+/plugin install chasky@chasky
+```
+
 ## Getting started
 
 First you need to declare your secrets in `~/.chasky.yaml` under the following syntax:

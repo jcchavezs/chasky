@@ -77,14 +77,14 @@ func execFile(ctx context.Context, values map[string]string) (types.Output, erro
 	}
 
 	return types.Output{
-		WelcomeMsg: `The environment variables were written to the file in the $ENV_FILE env var.
+		WelcomeMsg: `The environment variables were written to the file in the $DOTENV_FILE env var.
 
 Load them into your shell with:
-$ set -a && eval "$(cat "$ENV_FILE")" && set +a
+$ set -a && eval "$(cat "$DOTENV_FILE")" && set +a
 
-(Read the file with cat rather than sourcing it directly: $ENV_FILE is a pipe,
+(Read the file with cat rather than sourcing it directly: $DOTENV_FILE is a pipe,
 and some shells read 0 bytes when they size the file up front.)`,
-		EnvVars: []string{fmt.Sprintf("ENV_FILE=%s", sink.Path())},
+		EnvVars: []string{fmt.Sprintf("DOTENV_FILE=%s", sink.Path())},
 		Closer:  sink.Close,
 	}, nil
 }

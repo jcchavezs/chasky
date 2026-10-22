@@ -1,0 +1,10 @@
+{
+  "name": "chasky",
+  "version": "0.1.0",
+  "description": "Chasky secrets dealer: run commands with secrets loaded from a chasky environ through an anonymous pipe, so nothing is written to disk.",
+  "author": { "name": "jcchavezs", "url": "https://github.com/jcchavezs" },
+  "homepage": "https://github.com/jcchavezs/chasky",
+  "repository": "https://github.com/jcchavezs/chasky",
+  "license": "Apache-2.0",
+  "keywords": ["secrets", "env", "dotenv", "security"]
+}

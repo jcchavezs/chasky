@@ -29,10 +29,10 @@ func TestExec_ProducesEnvFileWhenPipeEnabled(t *testing.T) {
 
 	// The secrets are exposed through a file, not injected into the environment.
 	require.Len(t, out.EnvVars, 1)
-	require.True(t, strings.HasPrefix(out.EnvVars[0], "ENV_FILE="))
-	assert.Contains(t, out.WelcomeMsg, "$ENV_FILE")
+	require.True(t, strings.HasPrefix(out.EnvVars[0], "DOTENV_FILE="))
+	assert.Contains(t, out.WelcomeMsg, "$DOTENV_FILE")
 
-	path := strings.TrimPrefix(out.EnvVars[0], "ENV_FILE=")
+	path := strings.TrimPrefix(out.EnvVars[0], "DOTENV_FILE=")
 	content, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "S3_BUCKET=my-bucket\n")
