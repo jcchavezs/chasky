@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
+	"github.com/jcchavezs/chasky/internal/output/file"
 	"github.com/jcchavezs/chasky/internal/output/types"
 )
 
@@ -21,15 +21,13 @@ func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 		fmt.Fprintf(s, "%s=%s\n", k, v)
 	}
 
-	f, err := os.CreateTemp(os.TempDir(), ".env")
+	sink, err := file.NewSink(ctx, ".env")
 	if err != nil {
 		return types.Output{}, fmt.Errorf("creating credentials file: %w", err)
 	}
-	defer func() {
-		_ = f.Close()
-	}()
 
-	if _, err := f.WriteString(s.String()); err != nil {
+	if _, err := sink.Write([]byte(s.String())); err != nil {
+		_ = sink.Close()
 		return types.Output{}, fmt.Errorf("writing credentials: %w", err)
 	}
 
@@ -38,9 +36,7 @@ func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 
 For example:
 $ docker run --env-file $DOTENV_FILE ....`,
-		EnvVars: []string{fmt.Sprintf("DOTENV_FILE=%s", f.Name())},
-		Closer: func() error {
-			return os.Remove(f.Name())
-		},
+		EnvVars: []string{fmt.Sprintf("DOTENV_FILE=%s", sink.Path())},
+		Closer:  sink.Close,
 	}, nil
 }

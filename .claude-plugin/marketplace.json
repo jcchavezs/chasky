@@ -1,0 +1,12 @@
+{
+  "name": "chasky",
+  "owner": { "name": "jcchavezs", "url": "https://github.com/jcchavezs" },
+  "plugins": [
+    {
+      "name": "chasky",
+      "source": "./",
+      "description": "Run commands with chasky environ secrets delivered via an anonymous pipe.",
+      "version": "0.1.0"
+    }
+  ]
+}

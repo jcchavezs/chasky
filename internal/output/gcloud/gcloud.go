@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
+	"github.com/jcchavezs/chasky/internal/output/file"
 	"github.com/jcchavezs/chasky/internal/output/types"
 )
 
@@ -49,22 +49,18 @@ func Exec(ctx context.Context, values map[string]string) (types.Output, error) {
 		return types.Output{}, fmt.Errorf("marshaling credentials: %w", err)
 	}
 
-	f, err := os.CreateTemp(os.TempDir(), "application_default_credentials.json")
+	sink, err := file.NewSink(ctx, "application_default_credentials.json")
 	if err != nil {
 		return types.Output{}, fmt.Errorf("creating credentials file: %w", err)
 	}
-	defer func() {
-		_ = f.Close()
-	}()
 
-	if _, err := f.Write(b); err != nil {
+	if _, err := sink.Write(b); err != nil {
+		_ = sink.Close()
 		return types.Output{}, fmt.Errorf("writing credentials: %w", err)
 	}
 
 	return types.Output{
-		EnvVars: []string{fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", f.Name())},
-		Closer: func() error {
-			return os.Remove(f.Name())
-		},
+		EnvVars: []string{fmt.Sprintf("GOOGLE_APPLICATION_CREDENTIALS=%s", sink.Path())},
+		Closer:  sink.Close,
 	}, nil
 }

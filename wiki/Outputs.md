@@ -54,6 +54,20 @@ fill the required values:
       type: bash
 ```
 
+By default the values are injected directly into the spawned process environment.
+When [`--fifo`](./Features#on-demand-files-via-pipes---fifo) is enabled the secrets
+are not placed in the environment (where they would be readable through
+`/proc/<pid>/environ`); instead they are written to an on-demand env file whose
+path is exposed in the `$DOTENV_FILE` env var:
+
+```bash
+$ set -a && eval "$(cat "$DOTENV_FILE")" && set +a
+```
+
+Read the file with `cat` rather than sourcing it directly (`. "$DOTENV_FILE"`):
+`$DOTENV_FILE` is a pipe, and some shells read 0 bytes because they size the file up
+front (a pipe reports a size of 0).
+
 ## gcloud
 
 `dotevn` allows you to output credentials in an ephemeral `application_default_credentials.json` file:
