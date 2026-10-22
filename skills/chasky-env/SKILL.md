@@ -1,7 +1,7 @@
 ---
 name: chasky-env
-description: Run a command with a chasky environment's secrets loaded from its dotenv output, delivered through an anonymous pipe (`--fifo --fifo-mode=fd`) so nothing is written to disk. Use when the user asks to load, use or run something with a chasky environ (e.g. "run X with the `my_app` env").
-argument-hint: <environ> [-- command args...]
+description: Run a command with a chasky environment's secrets loaded from its dotenv output, delivered through an anonymous pipe (`--fifo --fifo-mode=fd`) so nothing is written to disk. Use when the user asks to load, use or run something with a chasky environ (e.g. "run X with the `my_app` env"). If no environ is named, list available environs and offer a suitable one based on its description.
+argument-hint: [environ] [-- command args...]
 ---
 
 # chasky-env
@@ -25,8 +25,12 @@ chasky <env> --fifo --fifo-mode=fd -- <command>
 
 ## Steps
 
-1. Take the environ name from the user's request (`$ARGUMENTS`). If it is missing, ask the
-   user which environ to use.
+1. Take the environ name from the user's request (`$ARGUMENTS`). If it is missing, run
+   `chasky list` and show the available environ names and descriptions to the user. Based
+   on the user's task, recommend a relevant environ if its description is a good fit, and
+   ask the user to confirm they want to use it before running any command that loads its
+   secrets. If none is a clear fit, ask the user which environ to use. Do not load an
+   environ until the user confirms the recommendation or names one.
 2. Load the env file once (`eval "$(cat ...)"`, not `.`/`source`: some shells read 0 bytes when they size a pipe up front) inside the spawned process, then exec the target command.
    Each Bash tool call is a fresh shell, so the environ only lives for that one call;
    bundle everything that needs the secrets into the same invocation:
