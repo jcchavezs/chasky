@@ -1,5 +1,5 @@
 ---
-name: chasky-env
+name: loading-environ
 description: Run a command with a chasky environment's secrets loaded from its dotenv output, delivered through an anonymous pipe (`--fifo --fifo-mode=fd`) so nothing is written to disk. Use when the user asks to load, use or run something with a chasky environ (e.g. "run X with the `my_app` env"). If no environ is named, list available environs and offer a suitable one based on its description.
 argument-hint: [environ] [-- command args...]
 ---

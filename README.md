@@ -20,7 +20,7 @@ go install github.com/jcchavezs/chasky/cmd/chasky@latest
 
 ## Claude Code plugin
 
-This repository is also a Claude Code plugin that ships the `chasky-env` skill (requires the `chasky` binary installed):
+This repository is also a Claude Code plugin that ships the `loading-environ` skill (requires the `chasky` binary installed):
 
 ```console
 /plugin marketplace add jcchavezs/chasky
