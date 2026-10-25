@@ -6,5 +6,6 @@
   "homepage": "https://github.com/jcchavezs/chasky",
   "repository": "https://github.com/jcchavezs/chasky",
   "license": "Apache-2.0",
-  "keywords": ["secrets", "env", "dotenv", "security"]
+  "keywords": ["secrets", "env", "dotenv", "security"],
+  "skills": "./.claude/skills"
 }
